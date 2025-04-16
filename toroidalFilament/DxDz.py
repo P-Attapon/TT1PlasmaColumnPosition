@@ -1,4 +1,4 @@
-from geometry_TT1 import R
+from .geometry_TT1 import R
 import scipy as sc
 import numpy as np
 from numpy.typing import NDArray

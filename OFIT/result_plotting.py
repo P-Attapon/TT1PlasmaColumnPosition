@@ -6,10 +6,10 @@ from matplotlib import patches
 import matplotlib
 import pickle
 
-from parameters import TT1_linear_pixel_density,TT1_camera_principle_point,TT1_camera_translation,TT1_camera_rotation, TT1_dist_coeffs,TT1_image_kernel, TT1_circular_ROIs
-from detection_projection import mk_intrinsic_matrix, mk_projection_matrix,kernel_filter,max_intensity, max_gradient, find_edge,pix_to_projection
-from transformation import poloidal_transformation, RANSAC_circle
-from local_image import rev_image
+from .parameters import TT1_linear_pixel_density,TT1_camera_principle_point,TT1_camera_translation,TT1_camera_rotation, TT1_dist_coeffs,TT1_image_kernel, TT1_circular_ROIs
+from .detection_projection import mk_intrinsic_matrix, mk_projection_matrix,kernel_filter,max_intensity, max_gradient, find_edge,pix_to_projection
+from .transformation import poloidal_transformation, RANSAC_circle
+from .local_image import rev_image
 
 """
 Coordinate convention

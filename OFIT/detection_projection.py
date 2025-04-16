@@ -1,6 +1,6 @@
 import cv2
 from numpy.typing import NDArray
-from parameters import *
+from .parameters import *
 
 """
 Functions to perform pixel edge detection and transform to Tokamak's projection plane

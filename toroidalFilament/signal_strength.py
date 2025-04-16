@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sc
 import warnings
 from numpy.typing import NDArray
-from geometry_TT1 import R0, mu, I, R
+from .geometry_TT1 import R0, mu, I, R
 
 """
 Calculate magnetic signal

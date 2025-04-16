@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sc
 from uncertainties import ufloat
 from numpy.typing import NDArray
-from signal_strength import cal_signal
+from .signal_strength import cal_signal
 from typing import Callable
 
 """

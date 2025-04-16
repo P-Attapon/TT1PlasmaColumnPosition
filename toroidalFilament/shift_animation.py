@@ -3,13 +3,13 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
-from plasma_shift import cal_shift
-from DxDz import cal_approx_DxDz as DxDz
-from DxDz import cal_newton_DxDz as newton
-from DxDz import cal_exact
-from signal_strength import cal_signal
-from geometry_TT1 import cross
-import geometry_TT1
+from .plasma_shift import cal_shift
+from .DxDz import cal_approx_DxDz as DxDz
+from .DxDz import cal_newton_DxDz as newton
+from .DxDz import cal_exact
+from .signal_strength import cal_signal
+from .geometry_TT1 import cross
+from . import geometry_TT1
 
 iteration = [0]
 #actual value

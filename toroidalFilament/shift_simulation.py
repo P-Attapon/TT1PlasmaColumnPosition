@@ -3,10 +3,10 @@ from matplotlib import pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from plasma_shift import cal_shift
-from DxDz import cal_newton_DxDz as newton
-from signal_strength import cal_signal
-from geometry_TT1 import cross
+from .plasma_shift import cal_shift
+from .DxDz import cal_newton_DxDz as newton
+from .signal_strength import cal_signal
+from .geometry_TT1 import cross
 
 num_iteration = 1000
 
