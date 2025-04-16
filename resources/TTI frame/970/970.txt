@@ -1,0 +1,12 @@
+ShotNo:970
+FrameRate:2000
+FrameCount:400
+ExposureTime:300
+FrameWidth:1920
+FrameHeight:1080
+GainR:1.03516
+GainG:1.04297
+GainB:1.03516
+Luminance:50
+Contrast:50
+AnalogGain:x1
