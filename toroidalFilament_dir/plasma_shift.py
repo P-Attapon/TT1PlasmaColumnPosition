@@ -199,4 +199,4 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
             print(f"unable to fit data at time {t} continue to next signal")
             continue
     
-    return np.array(valid_time), np.array(R0_arr), np.array(R0_err_arr), np.array(Z0_arr), np.array(Z0_err_arr)
+    return valid_time, R0_arr, R0_err_arr, Z0_arr, Z0_err_arr
