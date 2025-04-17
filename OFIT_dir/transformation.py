@@ -1,10 +1,11 @@
 import warnings
 
+from .parameters import *
+
 from numpy.typing import NDArray
 from scipy.optimize import leastsq, curve_fit
 from scipy.ndimage import maximum_filter
 from ellipse import LsqEllipse
-from parameters import *
 from sklearn.cluster import AgglomerativeClustering
 
 """

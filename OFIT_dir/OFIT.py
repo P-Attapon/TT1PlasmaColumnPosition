@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import pickle
+from pathlib import Path
 
 from tqdm import tqdm
 
@@ -59,7 +60,12 @@ def process_image(img:np.ndarray,intrinsic_matrix: np.ndarray = TT1_intrinsic_ma
     return img_result
 
 # load excluded pixels (port structure of TT1)
-with open("TT1_port_pixel.pkl","rb") as structure_edge:
+
+#path to pkl file
+OFIT_dir = Path(__file__).resolve().parent
+pkl_path = OFIT_dir / "TT1_port_pixel.pkl"
+
+with open(pkl_path,"rb") as structure_edge:
     port_set = pickle.load(structure_edge)
 def field_edge_detection(img:np.ndarray, TT1_ROIs:dict = TT1_circular_ROIs, exclusion:set = port_set,
                          n_peaks:int = 1, high_window_size: int = 40, low_window_size:int = 60,detection_method:callable = max_intensity) -> tuple:
