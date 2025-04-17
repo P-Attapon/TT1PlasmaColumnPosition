@@ -5,6 +5,12 @@ from numpy.typing import NDArray
 from .signal_strength import cal_signal
 from typing import Callable
 
+from .geometry_TT1 import coil_angle_dict, R0
+from .DxDz import cal_newton_DxDz
+import pandas as pd
+import warnings
+from tqdm import tqdm
+
 """
 Calculate alpha and beta for curve fitting
 """
@@ -130,3 +136,67 @@ def cal_combined_shift(DxDz_method: Callable, taylor_order:int,signal: list[list
         [np.mean(shift[:, 0]), np.std(shift[:, 0], ddof=1)],
         [np.mean(shift[:, 1]), np.std(shift[:, 1], ddof=1)]
     ])
+
+#shift progression
+def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFrame,probe_number:list[list[int]],taylor_order:int = 2,DxDz_method = cal_newton_DxDz):
+    """
+    use magnetic signal to calculate plasma shift at each time step for each specified array in magnetic probes
+
+    :param time_df: data frame of recorded time of each magnetic signal input
+    :param signal_df: data frame of recorded signal 
+    :param probe_number: nested list of probe numbers used in each array (counter clockwise) eg. [[1,4,7,10],[12,3,6,9]]
+    :param taylor_order: order of taylor series used in plasma shift calculation
+    :param DxDz_method: calculation method for Dx & Dz use newton method as default
+    :return: valid time stamps and shift with respective errror (np.array(valid_time), np.array(R0_arr), np.array(R0_err_arr), np.array(Z0_arr), np.array(Z0_err_arr))
+    """
+    #retreive angles of each probes from predefined distionary in geometry_TT1.py
+    probe_angles = [[coil_angle_dict[coil] for coil in group] for group in probe_number]
+
+
+    #determine number of probe arrays used
+    num_result = len(probe_number)
+
+    #create blank lists for appendind results of plasma shift
+    R0_arr, R0_err_arr = [[0] for _ in range(num_result)], [[0]for _ in range(num_result)]
+    Z0_arr,Z0_err_arr = [[0]for _ in range(num_result)], [[0]for _ in range(num_result)]
+    valid_time = [[0] for _ in range(num_result)]
+
+    #ignore warning from signal calculatoin (to be replaced in loop)
+    warnings.filterwarnings("ignore")
+
+    for t, signal in tqdm(zip(
+        time_df.to_numpy(),signal_df.to_numpy()
+    ),total = len(time_df)):
+        try:
+            #retreive signals for each probe arrays
+            signal_df = [[signal[coil] for coil in group] for group in probe_number]
+
+
+            #calculate shift for each probe arrays
+            for i,s in enumerate(signal_df):
+                #replace warnings from signal calculatoin
+                est_horizontal_shift = R0_arr[i][-1]
+                if est_horizontal_shift < -R0:
+                    print(f"horizontal shift at time {t} is beyond domain for probe {probe_number[i]} use a_f = R0")
+
+                shift = cal_shift(DxDz_method=DxDz_method, taylor_order=taylor_order,signal = s, 
+                                est_horizontal_shift=R0_arr[i][-1], est_vertical_shift=Z0_arr[i][-1],coil_angle=probe_angles[i],
+                                alpha_vertical_range=np.linspace(-0.05,0.05,101), beta_horizontal_range=np.linspace(-0.05,0.05,101))
+                
+                R_shift, R_err = shift[0]
+                Z_shift, Z_err = shift[1]
+
+                R0_arr[i].append(R_shift)
+                R0_err_arr[i].append(R_err)
+                Z0_arr[i].append(Z_shift)
+                Z0_err_arr[i].append(Z_err)
+            
+                #time with valid shift values
+                valid_time[i].append(t)
+
+
+        except RuntimeError:
+            print(f"unable to fit data at time {t} continue to next signal")
+            continue
+    
+    return np.array(valid_time), np.array(R0_arr), np.array(R0_err_arr), np.array(Z0_arr), np.array(Z0_err_arr)
