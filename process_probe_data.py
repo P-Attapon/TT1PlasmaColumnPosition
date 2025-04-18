@@ -99,4 +99,4 @@ def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_
 
     #remove noise using signal at t1
     trimmed_magnetic_signal_df = trimmed_magnetic_signal_df - trimmed_magnetic_signal_df.iloc[0]
-    return trimmed_time_df, trimmed_plasma_current_df, trimmed_magnetic_signal_df
+    return trimmed_time_df.iloc[1:], trimmed_plasma_current_df.iloc[1:], trimmed_magnetic_signal_df.iloc[1:]

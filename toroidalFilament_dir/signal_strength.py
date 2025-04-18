@@ -20,6 +20,10 @@ def coil_signal(phi:np.float64, r:float, z:float, a_f:float):
     Returns:
     float: simulated magnetic signal at each coils
     """
+    if None in (phi,r,z,a_f) or np.inf in (phi,r,z,a_f):
+        raise ValueError(f"Nan or inf is contained in [phi,r,z,a_f] = {[phi,r,z,a_f]}")
+    if a_f < 0:
+        raise ValueError("a_f is negative")
 
     k = np.sqrt(4 * a_f * r / ((a_f + r) ** 2 + z ** 2))
     K, E = sc.special.ellipk(k ** 2), sc.special.ellipe(k ** 2)
@@ -50,11 +54,6 @@ def cal_signal(horizontal_shift: float, vertical_shift: float, coil_angle: NDArr
     """
     x, z = horizontal_shift, vertical_shift
     a_f:float = R0 + x  # calculate plasma radius from shift
-
-    # to prevent sqrt error in coil_signal if x < -R0 use R0 instead
-    if x < -R0:
-        warnings.warn("horizontal shift beyond domain use a_f = R0")
-        a_f = R0
 
     loc: list[tuple[float, float]] = [(R0 + R * np.cos(phi), R * np.sin(phi) - z) for phi in
                     coil_angle]  # get coordinate of each coil in cylindrical coordinate

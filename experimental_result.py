@@ -12,7 +12,7 @@ from toroidalFilament_dir.plasma_shift import toroidal_filament_shift_progressio
 from OFIT_dir.OFIT import OFIT
 from OFIT_dir.local_image import rev_image, get_frames_for_shot
 
-shot_lst = list(range(963,969))
+shot_lst = list(range(961,968))
 time_extension = 40 #ms
 
 for shot_no in shot_lst:
@@ -146,7 +146,7 @@ for shot_no in shot_lst:
     #adjusted result
     result_plot(ax[0,2],ax[1,2],True)
 
-    save_path = r"C:\Users\pitit\Documents\02_MUIC_programming\ICPY_441_Senior_project_in_physics\plasmaColumnPosition\resources\result" + f"\{shot_no}"
+    save_path = r"C:\Users\pitit\Documents\02_MUIC_programming\ICPY_441_Senior_project_in_physics\plasmaColumnPosition\resources\result" + f"\\{shot_no}"
     plt.tight_layout()
     plt.savefig(save_path)
     plt.clf()
