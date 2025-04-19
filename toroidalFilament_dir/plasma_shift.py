@@ -88,13 +88,13 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
 
     Dx, Dz = DxDz_method(signal, coil_angle)
 
-    alpha, a_cov = cal_alpha(DxDz_method,Dz,taylor_order,est_horizontal_shift, coil_angle,vertical_range = alpha_vertical_range) ###check here
-    beta, b_cov = cal_beta(DxDz_method,Dx,taylor_order,est_vertical_shift, coil_angle, horizontal_range= beta_horizontal_range)
+    alpha, a_cov = cal_alpha(DxDz_method,0,taylor_order,est_horizontal_shift, coil_angle,vertical_range = alpha_vertical_range) ###check here
+    beta, b_cov = cal_beta(DxDz_method,0,taylor_order,est_vertical_shift, coil_angle, horizontal_range= beta_horizontal_range)
 
     a_cov, b_cov = np.diag(a_cov), np.diag(b_cov)
 
-    vertical_shift = make_taylor(taylor_order, a = Dz)(Dz,*alpha)
-    horizontal_shift = make_taylor(taylor_order, a = Dx)(Dx,*beta)
+    vertical_shift = make_taylor(taylor_order, a = 0)(Dz,*alpha)
+    horizontal_shift = make_taylor(taylor_order, a = 0)(Dx,*beta)
 
     vertical_shift_uncertainty = np.sqrt(np.sum((np.array(alpha) * a_cov) ** 2))
     horizontal_shift_uncertainty = np.sqrt(np.sum((np.array(beta) * b_cov) ** 2))
@@ -138,7 +138,7 @@ def cal_combined_shift(DxDz_method: Callable, taylor_order:int,signal: list[list
     ])
 
 #shift progression
-def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFrame,probe_number:list[list[int]],taylor_order:int = 2,DxDz_method = cal_newton_DxDz):
+def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFrame,probe_number:list[list[int]],taylor_order:int = 3,DxDz_method = cal_newton_DxDz):
     """
     use magnetic signal to calculate plasma shift at each time step for each specified array in magnetic probes
 
@@ -178,7 +178,7 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
 
                 shift = cal_shift(DxDz_method=DxDz_method, taylor_order=taylor_order,signal = s,
                                 est_horizontal_shift=est_R_shift, est_vertical_shift=est_Z_shift,coil_angle=probe_angles[i],
-                                alpha_vertical_range=np.linspace(-0.01,0.01,101), beta_horizontal_range=np.linspace(-0.01,0.01,101))
+                                alpha_vertical_range=np.linspace(-0.15,0.15,151), beta_horizontal_range=np.linspace(-0.15,0.15,151))
 
                 R_shift, R_err = shift[0]
                 Z_shift, Z_err = shift[1]

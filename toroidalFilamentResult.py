@@ -9,7 +9,6 @@ from process_probe_data import retreive_plasma_current, retreive_magnetic_signal
 from toroidalFilament_dir.plasma_shift import toroidal_filament_shift_progression
 
 shot_lst = list(range(961,968))
-shot_lst = [961]
 time_extension = 10 #ms
 
 for shot_no in shot_lst:
