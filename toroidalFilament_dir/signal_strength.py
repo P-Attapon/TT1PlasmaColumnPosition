@@ -7,7 +7,7 @@ from .geometry_TT1 import R0, mu, I, R
 """
 Calculate magnetic signal
 """
-def coil_signal(phi:np.float64, r:float, z:float, a_f:float):
+def coil_signal(phi:np.float64, r:float, z:float, a_f:float,I = I):
     """
     simulate magnetic signal at each coils in cylindrical coordinate
 

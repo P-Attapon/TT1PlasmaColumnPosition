@@ -178,7 +178,7 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
 
                 shift = cal_shift(DxDz_method=DxDz_method, taylor_order=taylor_order,signal = s,
                                 est_horizontal_shift=est_R_shift, est_vertical_shift=est_Z_shift,coil_angle=probe_angles[i],
-                                alpha_vertical_range=np.linspace(-0.15,0.15,151), beta_horizontal_range=np.linspace(-0.15,0.15,151))
+                                alpha_vertical_range=np.linspace(-0.13,0.13,151), beta_horizontal_range=np.linspace(-0.13,0.13,151))
 
                 R_shift, R_err = shift[0]
                 Z_shift, Z_err = shift[1]

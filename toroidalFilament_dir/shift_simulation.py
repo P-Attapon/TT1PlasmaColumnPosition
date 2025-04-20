@@ -15,9 +15,9 @@ def simulate_signal(num_iteration = 1_000):
     for _ in range(num_iteration):
         R_est = R_sim[-1] if len(R_sim) > 0 else 0
         Z_est = Z_sim[-1] if len(Z_sim) > 0 else 0
-        if abs(R_est) <= 0.12:
+        if abs(R_est) <= 0.16:
             R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.8,0.2])
-            Z_shift = Z_est + np.random.choice([-0.001, 0.001], p = [0.2,0.8])
+            Z_shift = Z_est + np.random.choice([-0.001, 0.001], p = [0.8,0.2])
 
         else:
             R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
@@ -50,6 +50,8 @@ valid_iteration, R_arr, R_err, Z_arr, Z_err =  toroidal_filament_shift_progressi
 
 fig, ax = plt.subplots(1,2,figsize = (15,5))
 
+fig.suptitle(r"low shift simulation result$")
+
 ax[0].plot(iteration, R_sim, label = "R sim")
 for iter, R, probes in zip(valid_iteration, R_arr,use_probes):
     ax[0].plot(iter,R,label = f"{probes}")
@@ -70,3 +72,7 @@ for a in ax:
     a.set_ylim(-0.2,0.2)
 
 plt.show()
+
+for R,Z,probes in zip(R_arr,Z_arr,use_probes):
+    print(f"{probes} R error: {np.abs(np.mean(np.array(R[1:]) - np.array(R_sim)))}")
+    print(f"{probes} Z error: {np.abs(np.mean(np.array(Z[1:]) - np.array(Z_sim)))}")
