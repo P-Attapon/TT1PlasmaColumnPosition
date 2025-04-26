@@ -1,6 +1,5 @@
 import numpy as np
 import scipy as sc
-from uncertainties import ufloat
 from numpy.typing import NDArray
 from .signal_strength import cal_signal
 from typing import Callable
@@ -21,7 +20,7 @@ def make_taylor(order,a) -> Callable:
     return taylor_polynomial
 
 def cal_alpha(DxDz_method: Callable,a:float,taylor_order:int ,horizontal_shift: float, coil_angle: NDArray[np.float64],
-            vertical_range: NDArray[np.float64] = np.linspace(-0.05,0.05,101)) -> tuple:
+            vertical_range: NDArray[np.float64]) -> tuple:
     """
     calculate alpha coefficient from curve fitting
 
@@ -44,7 +43,7 @@ def cal_alpha(DxDz_method: Callable,a:float,taylor_order:int ,horizontal_shift: 
     return sc.optimize.curve_fit(taylor_polynomial, Dz, vertical_range,p0 = [0.001]*(taylor_order+1),full_output=False,gtol=1e-8, xtol=1e-8)
 
 def cal_beta(DxDz_method: Callable,a: float,taylor_order:int,vertical_shift: float, coil_angle: NDArray[np.float64],
-             horizontal_range: NDArray[np.float64] = np.linspace(-0.05,0.05,101)) -> tuple:
+             horizontal_range: NDArray[np.float64] ) -> tuple:
     """
     calculate beta coefficient from curve fitting
 
