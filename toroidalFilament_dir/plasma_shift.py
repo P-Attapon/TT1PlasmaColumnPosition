@@ -8,7 +8,10 @@ from .geometry_TT1 import coil_angle_dict, R0
 from .DxDz import cal_newton_DxDz
 import pandas as pd
 import warnings
+import pickle
 from tqdm import tqdm
+from pathlib import Path
+
 
 """
 Calculate alpha and beta for curve fitting
@@ -66,8 +69,54 @@ def cal_beta(DxDz_method: Callable,a: float,taylor_order:int,vertical_shift: flo
     #p0 -> taylor order + 1 because order n has n+1 coeff
     return sc.optimize.curve_fit(taylor_polynomial, Dx, horizontal_range,p0 = [0.001] * (taylor_order+1),full_output=False,gtol=1e-8, xtol=1e-8)
 
+toroidalFilament_dir = Path(__file__).resolve().parent
+pkl_path = toroidalFilament_dir / "shift_coefficients.pkl"
+with open(pkl_path, "rb") as coefficients_file:
+    alpha_dict = pickle.load(coefficients_file)
+    beta_dict = pickle.load(coefficients_file)
 
-def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_horizontal_shift: float, est_vertical_shift: float, coil_angle: NDArray[np.float64],
+def probe_lst_to_str(lst):
+    """
+    convert probe numbers stored in list to string for coefficients dictionaries
+    """
+    arr_str = ""
+    for i, probe_num in enumerate(lst):
+        if i == 0:
+            arr_str += str(probe_num)
+        else: arr_str += " " + str(probe_num)
+    return arr_str
+
+def find_nearest(num,tree):
+    """
+    find value of nearest key neighbor of a given tree
+    Args:
+        num: input number to find nearest key's value number
+        tree: tree to be traversed
+
+    Returns: value of the nearest key
+    """
+    tree.insert(num,num)
+
+    if tree.max_key() == num:
+        result = tree.prev_item(num)[1]
+        tree.remove(num)
+        return result
+
+    elif tree.min_key() == num:
+        result = tree.succ_item(num)[1]
+        tree.remove(num)
+        return result
+
+    (left_key,left_value), (right_key,right_value) = tree.prev_item(num), tree.succ_item(num)
+    tree.remove(num)
+
+    min_diff = min(abs(left_key - num), (abs(right_key - num)))
+    if min_diff == left_key:
+        return left_key
+
+    return right_value
+
+def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_horizontal_shift: float, est_vertical_shift: float, probe_number: list[int],
               alpha_vertical_range = np.linspace(-0.05,0.05,101), beta_horizontal_range = np.linspace(-0.05,0.05,101)) -> NDArray:
     """
     calculate DeltaX and DeltaZ from power series of Dx & Dz based on estimation of shift value
@@ -78,23 +127,32 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     signal (list[float]): magnetic signal at each magnetic probe in coil_angle
     est_horizontal_shift (float): estimate shift along x/radial direction
     est_vertical_shift (float): estimate shift along z/vertical direction
-    coil_angle (list[float]): list of angle between the positive x-axis and radial vector each coil in the cross
+    probe_number (list[float]): number of used probes GBPXT
 
     :return:
     matrix: [[x_shift, x_shift_uncertainty],
              [z_shift, z_shift_uncertainty]]
     """
+    #look up probe angles of each probes
+    coil_angle = [coil_angle_dict[probe] for probe in probe_number]
 
+    #calculate Dx Dz
     Dx, Dz = DxDz_method(signal, coil_angle)
 
-    alpha, a_cov = cal_alpha(DxDz_method,0,taylor_order,est_horizontal_shift, coil_angle,vertical_range = alpha_vertical_range) ###check here
-    beta, b_cov = cal_beta(DxDz_method,0,taylor_order,est_vertical_shift, coil_angle, horizontal_range= beta_horizontal_range)
+    #convert probe numbers to string keys in dictionaries
+    probe_key = probe_lst_to_str(probe_number)
+
+    #look up the coefficients
+    alpha, a_cov = find_nearest(est_horizontal_shift,alpha_dict[probe_key])
+    beta, b_cov = find_nearest(est_vertical_shift,beta_dict[probe_key])
 
     a_cov, b_cov = np.diag(a_cov), np.diag(b_cov)
 
+    #calculate shift based on Dx Dz and coefficients
     vertical_shift = make_taylor(taylor_order, a = 0)(Dz,*alpha)
     horizontal_shift = make_taylor(taylor_order, a = 0)(Dx,*beta)
 
+    #calculate uncertainty from covariances
     vertical_shift_uncertainty = np.sqrt(np.sum((np.array(alpha) * a_cov) ** 2))
     horizontal_shift_uncertainty = np.sqrt(np.sum((np.array(beta) * b_cov) ** 2))
 
@@ -148,10 +206,6 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
     :param DxDz_method: calculation method for Dx & Dz use newton method as default
     :return: valid time stamps and shift with respective errror (np.array(valid_time), np.array(R0_arr), np.array(R0_err_arr), np.array(Z0_arr), np.array(Z0_err_arr))
     """
-    #retreive angles of each probes from predefined distionary in geometry_TT1.py
-    probe_angles = [[coil_angle_dict[coil] for coil in group] for group in probe_number]
-
-
     #determine number of probe arrays used
     num_result = len(probe_number)
 
@@ -176,7 +230,7 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
                     est_Z_shift = 0
 
                 shift = cal_shift(DxDz_method=DxDz_method, taylor_order=taylor_order,signal = s,
-                                est_horizontal_shift=est_R_shift, est_vertical_shift=est_Z_shift,coil_angle=probe_angles[i],
+                                est_horizontal_shift=est_R_shift, est_vertical_shift=est_Z_shift,probe_number=probe_number[i],
                                 alpha_vertical_range=np.linspace(-0.13,0.13,151), beta_horizontal_range=np.linspace(-0.13,0.13,151))
 
                 R_shift, R_err = shift[0]

@@ -16,8 +16,8 @@ def simulate_signal(num_iteration = 1_000):
         R_est = R_sim[-1] if len(R_sim) > 0 else 0
         Z_est = Z_sim[-1] if len(Z_sim) > 0 else 0
         if abs(R_est) <= 0.15:
-            R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.8,0.2])
-            Z_shift = Z_est + np.random.choice([-0.001, 0.001], p = [0.8,0.2])
+            R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
+            Z_shift = Z_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
 
         else:
             R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
@@ -46,7 +46,7 @@ iteration_df = pd.Series(np.array(iteration).T)
 
 # ### calculate plasma shift
 # use_probes = [[1, 4, 7, 10], [12, 3, 6, 9], [2, 5, 8, 11], [12, 2, 6, 8],[1,2,7,8]]
-use_probes = [[1,4,7,10],[1,2,7,8],[3,5,9,11]]
+use_probes = [[1,4,7,10],[1,2,7,8],[11,3,5,9]]
 valid_iteration, R_arr, R_err, Z_arr, Z_err =  toroidal_filament_shift_progression(iteration_df,signal_df,use_probes)
 
 fig, ax = plt.subplots(1,2,figsize = (15,5))
