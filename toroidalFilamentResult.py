@@ -9,7 +9,8 @@ from process_probe_data import retreive_plasma_current, retreive_magnetic_signal
 from toroidalFilament_dir.plasma_shift import toroidal_filament_shift_progression
 
 shot_lst = list(range(961,968))
-time_extension = 10 #ms
+shot_lst = [966]
+time_extension = 30 #ms
 
 for shot_no in shot_lst:
     #retreive processed data
@@ -39,7 +40,7 @@ for shot_no in shot_lst:
             if adjust == False: factor = 0
             line = axR.plot(t, np.array(R_shift) - factor, label=f"{probe_arr}")
             color = line[0].get_color()
-            axR.errorbar(t, np.array(R_shift) - factor, yerr=R_err, alpha=0.1, color=color)
+            # axR.errorbar(t, np.array(R_shift) - factor, yerr=R_err, alpha=0.1, color=color)
 
         axR.set_ylim(-0.3, 0.3)
         axR.set_xlim(left=discharge_begin, right=end_time)
@@ -61,7 +62,7 @@ for shot_no in shot_lst:
             if adjust == False: factor = 0
             line = axZ.plot(t, np.array(Z_shift) - factor, label=f"{probe_arr}")
             color = line[0].get_color()
-            axZ.errorbar(t, np.array(Z_shift) - factor, yerr=Z_err, alpha=0.1, color=color)
+            # axZ.errorbar(t, np.array(Z_shift) - factor, yerr=Z_err, alpha=0.1, color=color)
 
         axZ.set_ylim(-0.3, 0.3)
         axZ.set_xlim(left=discharge_begin, right=end_time)
@@ -73,6 +74,8 @@ for shot_no in shot_lst:
 
     fig, ax = plt.subplots(1,2,figsize = (15,5))
     result_plot(ax[0],ax[1],False)
+    plt.show()
+    break
     save_path = r"C:\Users\pitit\Documents\02_MUIC_programming\ICPY_441_Senior_project_in_physics\plasmaColumnPosition\resources\result" + f"\\toroidal{shot_no}"
     plt.tight_layout()
     plt.savefig(save_path)

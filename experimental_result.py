@@ -82,7 +82,7 @@ for shot_no in shot_lst:
             if adjust == False: factor = 0
             line = axR.plot(t,np.array(R_shift)- factor,label = f"{probe_arr}")
             color = line[0].get_color()
-            axR.errorbar(t, np.array(R_shift) - factor, yerr=R_err, alpha=0.1,color = color)
+            # axR.errorbar(t, np.array(R_shift) - factor, yerr=R_err, alpha=0.1,color = color)
 
         #OFIT result
         axR.plot(OFIT_time, OFIT_Rshift,color = "black", label = "OFIT")
@@ -104,7 +104,7 @@ for shot_no in shot_lst:
             if adjust == False: factor = 0
             line = axZ.plot(t,np.array(Z_shift)-factor,label = f"{probe_arr}")
             color = line[0].get_color()
-            axZ.errorbar(t, np.array(Z_shift)-factor,yerr = Z_err,alpha = 0.1,color = color)
+            # axZ.errorbar(t, np.array(Z_shift)-factor,yerr = Z_err,alpha = 0.1,color = color)
 
         #OFIT result
         axZ.plot(OFIT_time, OFIT_Zshift,color = "black",label = "OFIT")
