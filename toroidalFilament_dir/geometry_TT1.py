@@ -38,3 +38,17 @@ coil_angle_dict = {
 
 all_arrays = [[11, 12, 5, 6], [11, 1, 5, 7], [11, 2, 5, 8], [11, 3, 5, 9], [11, 4, 5, 10], [12, 1, 6, 7], [12, 2, 6, 8],
               [12, 3, 6, 9], [12, 4, 6, 10], [1, 2, 7, 8], [1, 3, 7, 9], [1, 4, 7, 10], [2, 3, 8, 9], [2, 4, 8, 10], [3, 4, 9, 10]]
+
+def probe_lst_to_str(lst):
+    """
+    convert list of probe numbers into keys of coefficients dictionary
+
+    :param lst: list of 4 probe numbers
+    :return: a key as string of input of coefficients map
+    """
+    arr_str = ""
+    for i, probe_num in enumerate(lst):
+        if i == 0:
+            arr_str += str(probe_num)
+        else: arr_str += " " + str(probe_num)
+    return arr_str

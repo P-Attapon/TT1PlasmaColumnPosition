@@ -27,17 +27,16 @@ def coil_signal(phi:np.float64, r:float, z:float, a_f:float,I = I):
 
     k = np.sqrt(4 * a_f * r / ((a_f + r) ** 2 + z ** 2))
     K, E = sc.special.ellipk(k ** 2), sc.special.ellipe(k ** 2)
-    def b_r(r, z, a_f):  # calculate magnetic signal along radial direction with elliptic integrals
-        return mu * I / 2 / np.pi * z / r / np.sqrt((a_f + r) ** 2 + z ** 2) * (
+
+    b_r = mu * I / 2 / np.pi * z / r / np.sqrt((a_f + r) ** 2 + z ** 2) * (             # calculate magnetic signal along radial direction with elliptic integrals
                 -K + E * (a_f ** 2 + r ** 2 + z ** 2) / ((a_f - r) ** 2 + z ** 2)
                 )
-
-    def b_z(r, z, a_f):  # calculate magnetic signal along z direction with elliptic integrals
-        return mu * I / 2 / np.pi * 1 / np.sqrt((a_f + r) ** 2 + z ** 2) * (
+    
+    b_z = mu * I / 2 / np.pi * 1 / np.sqrt((a_f + r) ** 2 + z ** 2) * (                 # calculate magnetic signal along z direction with elliptic integrals
                 K + E * (a_f ** 2 - r ** 2 - z ** 2) / ((a_f - r) ** 2 + z ** 2)
                 )
 
-    return -b_r(r, z, a_f) * np.sin(phi) + b_z(r, z, a_f) * np.cos(phi) #absolute because signal is always positive regardless of plasma current vector
+    return -b_r * np.sin(phi) + b_z * np.cos(phi) #absolute because signal is always positive regardless of plasma current vector
 
 
 def cal_signal(horizontal_shift: float, vertical_shift: float, coil_angle: NDArray[np.float64]):

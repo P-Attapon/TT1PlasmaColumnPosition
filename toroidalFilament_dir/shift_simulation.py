@@ -2,6 +2,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 
+from .DxDz import cal_newton_DxDz as cal_DxDz
 from .plasma_shift import toroidal_filament_shift_progression
 from .signal_strength import coil_signal
 from .geometry_TT1 import coil_angle_dict, R0, R
@@ -17,7 +18,7 @@ def simulate_signal(num_iteration = 1_000):
         R_est = R_sim[-1] if len(R_sim) > 0 else 0
         Z_est = Z_sim[-1] if len(Z_sim) > 0 else 0
         if abs(R_est) <= 0.15:
-            R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.8,0.2])
+            R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
             Z_shift = Z_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
 
         else:
@@ -49,37 +50,63 @@ iteration_df = pd.Series(np.array(iteration).T)
 use_probes = [[11, 12, 5, 6], [11, 1, 5, 7], [11, 2, 5, 8], [11, 3, 5, 9], [11, 4, 5, 10], [12, 1, 6, 7], [12, 2, 6, 8], [12, 3, 6, 9], [12, 4, 6, 10], [1, 2, 7, 8], [1, 3, 7, 9], [1, 4, 7, 10], [2, 3, 8, 9], [2, 4, 8, 10], [3, 4, 9, 10]]
 valid_iteration, R_arr, R_err, Z_arr, Z_err =  toroidal_filament_shift_progression(iteration_df,signal_df,use_probes)
 
-fig, ax = plt.subplots(1,2,figsize = (10,5))
+all_Dx = [[] for _ in range(len(use_probes))]
+all_Dz = [[] for _ in range(len(use_probes))]
 
-ax[0].plot(iteration, R_sim, label = "R sim")
+
+for signal in signal_df.to_numpy():
+    for i,probe_num in enumerate(use_probes):
+        Dx, Dz = cal_DxDz([signal[j] for j in probe_num],[coil_angle_dict[j] for j in probe_num])
+        all_Dx[i].append(Dx)
+        all_Dz[i].append(Dz)
+
+fig, ax = plt.subplots(2,2,figsize = (10,5))
+
+for Dx_arr, probes in zip(all_Dx,use_probes):
+    ax[0,0].plot(iteration,Dx_arr)
+ax[0,0].set_xlabel("iteration [1]")
+ax[0,0].set_ylabel("Dx [m]")
+ax[0,0].grid()
+
+for Dz_arr, probes in zip(all_Dz,use_probes):
+    ax[0,1].plot(iteration,Dz_arr)
+ax[0,1].set_xlabel("iteration [1]")
+ax[0,1].set_ylabel("Dz [m]")
+ax[0,1].grid()
+
+ax[1,0].plot(iteration, R_sim, label = "R sim")
 for iter, R,Re, probes in zip(valid_iteration, R_arr,R_err,use_probes):
-    line, = ax[0].plot(iter,R,label = f"{probes}")
-    ax[0].errorbar(iter,R,yerr = Re,color = line.get_color())
-ax[0].set_xlabel("iteration [1]")
-ax[0].set_ylabel("R shift [m]")
-ax[0].grid()
+    line, = ax[1,0].plot(iter,R,label = f"{probes}")
+    ax[1,0].errorbar(iter,R,yerr = Re,color = line.get_color())
+ax[1,0].set_xlabel("iteration [1]")
+ax[1,0].set_ylabel("R shift [m]")
+ax[1,0].grid()
 
-ax[1].plot(iteration, Z_sim)
+ax[1,1].plot(iteration, Z_sim)
 for iter, Z,Ze, probes in zip(valid_iteration, Z_arr,Z_err, use_probes):
-    line, = ax[1].plot(iter,Z)
-    ax[1].errorbar(iter,Z,yerr=Ze, color = line.get_color())
-ax[1].set_xlabel("iteration [1]")
-ax[1].set_ylabel("Z shift [m]")
-ax[1].grid()
+    line, = ax[1,1].plot(iter,Z)
+    ax[1,1].errorbar(iter,Z,yerr=Ze, color = line.get_color())
+ax[1,1].set_xlabel("iteration [1]")
+ax[1,1].set_ylabel("Z shift [m]")
+ax[1,1].grid()
 
-for a in ax:
-    a.set_ylim(-0.2,0.2)
+num_row, num_col = ax.shape
+for i in range(num_row):
+    for j in range(num_col):
+        ax[i,j].set_ylim(-0.2,0.2)
 
-handles, labels = [], []
-for axis in ax:
-    h, l = axis.get_legend_handles_labels()
-    handles += h
-    labels += l
+ax[0,0].set_ylim(-0.3,0.3)
 
-# Place the figure legend
-fig.legend(handles, labels, loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.02))
-plt.tight_layout()
-plt.subplots_adjust(bottom=0.3)  # or even 0.35 if needed
+# handles, labels = [], []
+# for axis in ax:
+#     h, l = axis.get_legend_handles_labels()
+#     handles += h
+#     labels += l
+
+# # Place the figure legend
+# fig.legend(handles, labels, loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.02))
+# plt.tight_layout()
+# plt.subplots_adjust(bottom=0.3)  # or even 0.35 if needed
 plt.show()
 
 
