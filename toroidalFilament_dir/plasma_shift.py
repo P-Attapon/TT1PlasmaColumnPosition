@@ -112,7 +112,7 @@ def find_nearest(num,tree):
 
     min_diff = min(abs(left_key - num), (abs(right_key - num)))
     if min_diff == left_key:
-        return left_key
+        return left_value
 
     return right_value
 
@@ -146,15 +146,20 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     alpha, a_cov = find_nearest(est_horizontal_shift,alpha_dict[probe_key])
     beta, b_cov = find_nearest(est_vertical_shift,beta_dict[probe_key])
 
-    a_cov, b_cov = np.diag(a_cov), np.diag(b_cov)
-
     #calculate shift based on Dx Dz and coefficients
     vertical_shift = make_taylor(taylor_order, a = 0)(Dz,*alpha)
     horizontal_shift = make_taylor(taylor_order, a = 0)(Dx,*beta)
 
+    def sigma_f(x, popt, pcov):
+        """Compute the propagated uncertainty σ_f(x)."""
+        popt, pcov = np.array(popt),np.array(pcov)
+        v = np.array([x ** i for i in range(len(popt))])  # Gradient vector (x^0, x^1, x^2, ...)
+        var_f = np.dot(v.T, np.dot(pcov, v))  # v^T @ pcov @ v
+        return np.sqrt(var_f)
+
     #calculate uncertainty from covariances
-    vertical_shift_uncertainty = np.sqrt(np.sum((np.array(alpha) * a_cov) ** 2))
-    horizontal_shift_uncertainty = np.sqrt(np.sum((np.array(beta) * b_cov) ** 2))
+    vertical_shift_uncertainty = sigma_f(Dz,alpha,a_cov)
+    horizontal_shift_uncertainty = sigma_f(Dx,beta,b_cov)
 
     return np.array([
         [horizontal_shift, horizontal_shift_uncertainty],
