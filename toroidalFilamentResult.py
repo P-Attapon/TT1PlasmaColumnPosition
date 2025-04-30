@@ -10,8 +10,8 @@ from toroidalFilament_dir.plasma_shift import toroidal_filament_shift_progressio
 from toroidalFilament_dir.DxDz import cal_newton_DxDz as cal_DxDz
 from toroidalFilament_dir.geometry_TT1 import coil_angle_dict, all_arrays
 
+# shot_lst = [1108,1275,1745,1804,2308]
 shot_lst = list(range(961,968))
-# shot_lst = [966]
 time_extension = 30 #ms
 
 for shot_no in shot_lst:

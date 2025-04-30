@@ -11,13 +11,14 @@ retreive and process experimental data for toroidal filament model
 path_plasma_current = os.getcwd() + r"\resources\magneticSignal\Plasma current for plasma position.xlsx"
 path_magnetic_signal = os.getcwd() + r"\resources\magneticSignal\Magnetic probe GBP_T for plasma position.xlsx"
 
-def discharge_duration(time, plasma_current) -> tuple:
+def discharge_duration(time, plasma_current,Ip_threshold = 2500) -> tuple:
     """
     Calculate discharge time from plasma current using maximum current as reference.
     
     Args:
         time: Array of recorded time values
         plasma_current: Array of recorded plasma current values
+        Ip_threshold: thereshold of current to be considered plasma discharge
         
     Returns:
         Tuple of (discharge_begin, discharge_end) times
@@ -25,25 +26,24 @@ def discharge_duration(time, plasma_current) -> tuple:
     Raises:
         ValueError: If no plasma current detected
     """
-    # Find the index of maximum current
-    max_current_index = np.argmax(plasma_current)
-    max_current = plasma_current[max_current_index]
+    time_begin, time_end = None, None
+
+    #search from left to determine discharge begin
+    for t, Ip in zip(time, plasma_current):
+
+        if Ip >= Ip_threshold:
+            time_begin = t
+            break
+
+    #search from right to determine discharge end
+    for t, Ip in zip(reversed(time),reversed(plasma_current)):
+        if Ip >= Ip_threshold:
+            time_end = t
+            break
+
+    if time_begin == time_end: raise ValueError("No plasma discharge")
     
-    if max_current < 1e-5:
-        raise ValueError("No significant plasma current detected")
-    
-    # Find discharge begin (left of max current)
-    begin_idx = max_current_index
-    while begin_idx > 0 and plasma_current[begin_idx] > 1e-5:
-        begin_idx -= 1
-    
-    # Find discharge end (right of max current)
-    end_idx = max_current_index
-    while end_idx < len(plasma_current) - 1 and plasma_current[end_idx] > 1e-5:
-        end_idx += 1
-    
-    # Return the corresponding times
-    return (time[begin_idx], time[end_idx])
+    return time_begin,time_end
 
 def retreive_plasma_current(shot_no):
     """
@@ -63,7 +63,7 @@ def retreive_plasma_current(shot_no):
 
 def retreive_magnetic_signal(shot_no):
     """
-    retreive magnetic signal and flip signs of probes facing in different directions
+    retreive magnetic signal from excel workbook
 
     :param shot_no: experimental shot number
     :return: data frame of corrected signal (magnetic_signal_df)
@@ -73,13 +73,6 @@ def retreive_magnetic_signal(shot_no):
     #one of the column has more data points
     min_len = magnetic_signal_df.dropna().shape[0]
     magnetic_signal_df = magnetic_signal_df.iloc[:min_len]
-
-    #flip sign of probes facing different directions
-    #all signals will be negative
-    magnetic_signal_df.iloc[:,10] *= -1
-    magnetic_signal_df.iloc[:,11] *= -1
-    # magnetic_signal_df.iloc[:,1:10] *= -1
-    # magnetic_signal_df.iloc[:,12] *= -1
 
     return magnetic_signal_df
 
