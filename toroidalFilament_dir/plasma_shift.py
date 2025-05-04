@@ -222,39 +222,34 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
     for t, signal in tqdm(zip(
         time_df.to_numpy(),signal_df.to_numpy()
     ),total = len(time_df)):
-        try:
-            #retreive signals for each probe arrays
-            signal_df = [[signal[coil] for coil in group] for group in probe_number]
+        #retreive signals for each probe arrays
+        signal_df = [[signal[coil] for coil in group] for group in probe_number]
 
-            #calculate shift for each probe arrays
-            for i,s in enumerate(signal_df):
+        #calculate shift for each probe arrays
+        for i,s in enumerate(signal_df):
 
-                est_R_shift, est_Z_shift = R0_arr[i][-1], Z0_arr[i][-1]
-                if abs(est_R_shift) > 0.2 or abs(est_Z_shift) > 0.2: # TTI minor radius = 0.2
-                    est_R_shift = 0
-                    est_Z_shift = 0
+            est_R_shift, est_Z_shift = R0_arr[i][-1], Z0_arr[i][-1]
+            if abs(est_R_shift) > 0.13:
+                if est_R_shift < -0.13: est_R_shift = -0
+                elif est_R_shift > 0.13: est_R_shift = 0
 
-                shift = cal_shift(DxDz_method=DxDz_method, taylor_order=taylor_order,signal = s,
-                                est_horizontal_shift=est_R_shift, est_vertical_shift=est_Z_shift,probe_number=probe_number[i],
-                                alpha_vertical_range=np.linspace(-0.13,0.13,151), beta_horizontal_range=np.linspace(-0.13,0.13,151))
+            if abs(est_Z_shift) > 0.13:
+                if est_Z_shift < -0.13: est_Z_shift = -0
+                elif est_Z_shift > 0.13: est_Z_shift = 0
 
-                R_shift, R_err = shift[0]
-                Z_shift, Z_err = shift[1]
+            shift = cal_shift(DxDz_method=DxDz_method, taylor_order=taylor_order,signal = s,
+                            est_horizontal_shift=est_R_shift, est_vertical_shift=est_Z_shift,probe_number=probe_number[i],
+                            alpha_vertical_range=np.linspace(-0.13,0.13,151), beta_horizontal_range=np.linspace(-0.13,0.13,151))
 
-                R0_arr[i].append(R_shift)
-                R0_err_arr[i].append(R_err)
-                Z0_arr[i].append(Z_shift)
-                Z0_err_arr[i].append(Z_err)
+            R_shift, R_err = shift[0]
+            Z_shift, Z_err = shift[1]
 
-                #time with valid shift values
-                valid_time[i].append(t)
+            R0_arr[i].append(R_shift)
+            R0_err_arr[i].append(R_err)
+            Z0_arr[i].append(Z_shift)
+            Z0_err_arr[i].append(Z_err)
 
-        except ValueError:
-            print(f"unable to fit data at time {t} continue to next signal")
-            continue
+            #time with valid shift values
+            valid_time[i].append(t)
 
-        except RuntimeError:
-            print(f"unable to fit data at time {t} continue to next signal")
-            continue
-    
     return valid_time, R0_arr, R0_err_arr, Z0_arr, Z0_err_arr
