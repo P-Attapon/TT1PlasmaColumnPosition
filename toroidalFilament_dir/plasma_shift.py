@@ -143,8 +143,8 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     probe_key = probe_lst_to_str(probe_number)
 
     #look up the coefficients
-    alpha, a_cov = find_nearest(est_horizontal_shift,alpha_dict[probe_key])
-    beta, b_cov = find_nearest(est_vertical_shift,beta_dict[probe_key])
+    alpha, a_cov = find_nearest(est_horizontal_shift,alpha_dict[probe_key]) ##
+    beta, b_cov = find_nearest(est_vertical_shift,beta_dict[probe_key]) ##
 
     #calculate shift based on Dx Dz and coefficients
 
@@ -231,12 +231,12 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
 
             est_R_shift, est_Z_shift = R0_arr[i][-1], Z0_arr[i][-1]
             if abs(est_R_shift) > 0.13:
-                if est_R_shift < -0.13: est_R_shift = 0
-                elif est_R_shift > 0.13: est_R_shift = 0
+                if est_R_shift < -0.13: est_R_shift = -0.13
+                elif est_R_shift > 0.13: est_R_shift = 0.13
 
             if abs(est_Z_shift) > 0.13:
-                if est_Z_shift < -0.13: est_Z_shift = 0
-                elif est_Z_shift > 0.13: est_Z_shift = 0
+                if est_Z_shift < -0.13: est_Z_shift = -0.13
+                elif est_Z_shift > 0.13: est_Z_shift = 0.13
 
             shift = cal_shift(DxDz_method=DxDz_method, taylor_order=taylor_order,signal = s,
                             est_horizontal_shift=est_R_shift, est_vertical_shift=est_Z_shift,probe_number=probe_number[i],

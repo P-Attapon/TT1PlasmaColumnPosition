@@ -13,8 +13,8 @@ from toroidalFilament_dir.geometry_TT1 import all_arrays
 from OFIT_dir.OFIT import OFIT
 from OFIT_dir.local_image import rev_image, get_frames_for_shot
 
-# shot_lst = list(range(961,968))
-shot_lst = [2308]
+shot_lst = list(range(961,968))
+# shot_lst = [2308]
 #shot_lst = [370,433,582,665,969,1108,1275]
 time_extension = 40 #ms
 
@@ -27,6 +27,10 @@ for shot_no in shot_lst:
         continue
 
     recorded_magnetic_signal = retreive_magnetic_signal(shot_no)
+
+    # for shot 2308
+    # recorded_magnetic_signal["GBP10T"] = recorded_magnetic_signal["GBP10T"]  * -1
+    # recorded_magnetic_signal["GBP11T"] = recorded_magnetic_signal["GBP11T"]  * -1 
 
     end_time = min(discharge_begin + time_extension, discharge_end)
 
@@ -174,4 +178,4 @@ for shot_no in shot_lst:
     save_path = r"C:\Users\pitit\Documents\02_MUIC_programming\ICPY_441_Senior_project_in_physics\plasmaColumnPosition\resources\result" + f"\\{shot_no}"
     plt.tight_layout()
     plt.savefig(save_path)
-    plt.clf()
+    # plt.clf()

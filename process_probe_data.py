@@ -75,9 +75,11 @@ def retreive_magnetic_signal(shot_no):
     magnetic_signal_df = magnetic_signal_df.iloc[:min_len]
 
     #flip sign of probes facing different directions
-    #all signals will be positive
-    magnetic_signal_df.iloc[:,1:10] *= -1
-    magnetic_signal_df.iloc[:,12] *= -1
+    #all signals will be negative
+    magnetic_signal_df.iloc[:,10] *= -1
+    magnetic_signal_df.iloc[:,11] *= -1
+    # magnetic_signal_df.iloc[:,1:10] *= -1
+    # magnetic_signal_df.iloc[:,12] *= -1
 
     return magnetic_signal_df
 

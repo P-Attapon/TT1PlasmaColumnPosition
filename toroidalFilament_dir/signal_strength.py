@@ -37,7 +37,7 @@ def coil_signal(phi:np.float64, r:float, z:float, a_f:float,I = I):
                 K + E * (a_f ** 2 - r ** 2 - z ** 2) / ((a_f - r) ** 2 + z ** 2)
                 )
 
-    return abs(-b_r(r, z, a_f) * np.sin(phi) + b_z(r, z, a_f) * np.cos(phi)) #absolute because signal is always positive regardless of plasma current vector
+    return -b_r(r, z, a_f) * np.sin(phi) + b_z(r, z, a_f) * np.cos(phi) #absolute because signal is always positive regardless of plasma current vector
 
 
 def cal_signal(horizontal_shift: float, vertical_shift: float, coil_angle: NDArray[np.float64]):
