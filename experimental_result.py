@@ -14,12 +14,17 @@ from OFIT_dir.OFIT import OFIT
 from OFIT_dir.local_image import rev_image, get_frames_for_shot
 
 # shot_lst = list(range(961,968))
-shot_lst = [370,433,582,665,920,926,969,1108,1275,1745,1804,2308]
+shot_lst = [2308]
 time_extension = 40 #ms
 
 for shot_no in shot_lst:
     #retreive processed data
-    recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retreive_plasma_current(shot_no)
+    try:
+        recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retreive_plasma_current(shot_no)
+    except ValueError:
+        print(f"discharge time can't be determined for shot {shot_no}")
+        continue
+
     recorded_magnetic_signal = retreive_magnetic_signal(shot_no)
 
     end_time = min(discharge_begin + time_extension, discharge_end)

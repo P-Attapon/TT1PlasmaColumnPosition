@@ -21,6 +21,7 @@ def discharge_duration(time, plasma_current) -> float:
     inverted_signal = -plasma_current
     peaks, _ = find_peaks(inverted_signal,height=4000,distance = 150)
 
+    if len(peaks) == 0: raise ValueError("no peaks plasma current")
     current = plasma_current[peaks[0]]
     count = 0
 
@@ -32,9 +33,15 @@ def discharge_duration(time, plasma_current) -> float:
     discharge_begin = time[peaks[0] + count]
 
     #find time for end of plasma discharge
-    while current > 0:
+
+    max_current = max(plasma_current) #the time must pass through the maximum current first to prevent fluctuation near discharge time
+    pass_max = False
+
+    while current > 0 or not pass_max:
         count += 1
         current = plasma_current[peaks[0] + count]
+
+        if current == max_current: pass_max = True
     
     discharge_end = time[peaks[0] + count]
 
