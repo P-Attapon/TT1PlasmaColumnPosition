@@ -142,9 +142,6 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     #convert probe numbers to string keys in dictionaries
     probe_key = probe_lst_to_str(probe_number)
 
-    if np.isnan(est_vertical_shift): raise ValueError("nan in vertical shift")
-    if np.isnan(est_horizontal_shift): raise ValueError("nan in horizontal shift")
-
     #look up the coefficients
     alpha, a_cov = find_nearest(est_horizontal_shift,alpha_dict[probe_key])
     beta, b_cov = find_nearest(est_vertical_shift,beta_dict[probe_key])

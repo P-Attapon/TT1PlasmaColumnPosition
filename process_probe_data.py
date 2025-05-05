@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
 
@@ -10,42 +11,39 @@ retreive and process experimental data for toroidal filament model
 path_plasma_current = os.getcwd() + r"\resources\magneticSignal\Plasma current for plasma position.xlsx"
 path_magnetic_signal = os.getcwd() + r"\resources\magneticSignal\Magnetic probe GBP_T for plasma position.xlsx"
 
-def discharge_duration(time, plasma_current) -> float:
+def discharge_duration(time, plasma_current) -> tuple:
     """
-    calculate discharge time from plasma current
-
-    :param time: array of recorded time
-    :param plasma_current: array of recorded plasma current
-    :return: discharge time
-    """
-    inverted_signal = -plasma_current
-    peaks, _ = find_peaks(inverted_signal,height=4000,distance = 150)
-
-    if len(peaks) == 0: raise ValueError("no peaks plasma current")
-    current = plasma_current[peaks[0]]
-    count = 0
-
-    #find time for start of plasma discharge
-    while current <= 0: #current equal to 0 will cause zero division
-        count += 1
-        current = plasma_current[peaks[0] + count]
-
-    discharge_begin = time[peaks[0] + count]
-
-    #find time for end of plasma discharge
-
-    max_current = max(plasma_current) #the time must pass through the maximum current first to prevent fluctuation near discharge time
-    pass_max = False
-
-    while current > 0 or not pass_max:
-        count += 1
-        current = plasma_current[peaks[0] + count]
-
-        if current == max_current: pass_max = True
+    Calculate discharge time from plasma current using maximum current as reference.
     
-    discharge_end = time[peaks[0] + count]
-
-    return (discharge_begin, discharge_end)
+    Args:
+        time: Array of recorded time values
+        plasma_current: Array of recorded plasma current values
+        
+    Returns:
+        Tuple of (discharge_begin, discharge_end) times
+        
+    Raises:
+        ValueError: If no plasma current detected
+    """
+    # Find the index of maximum current
+    max_current_index = np.argmax(plasma_current)
+    max_current = plasma_current[max_current_index]
+    
+    if max_current < 1e-5:
+        raise ValueError("No significant plasma current detected")
+    
+    # Find discharge begin (left of max current)
+    begin_idx = max_current_index
+    while begin_idx > 0 and plasma_current[begin_idx] > 1e-5:
+        begin_idx -= 1
+    
+    # Find discharge end (right of max current)
+    end_idx = max_current_index
+    while end_idx < len(plasma_current) - 1 and plasma_current[end_idx] > 1e-5:
+        end_idx += 1
+    
+    # Return the corresponding times
+    return (time[begin_idx], time[end_idx])
 
 def retreive_plasma_current(shot_no):
     """

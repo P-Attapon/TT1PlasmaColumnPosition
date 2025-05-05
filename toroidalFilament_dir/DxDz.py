@@ -15,10 +15,12 @@ def cal_newton_DxDz(signal: list[float], c_angle: NDArray[np.float64]) -> list[f
 
     Parameters:
     signal (NDArray[np.float64]): array of signal measured in each manetic probe
-    c_aggle (NDArray[np.float64]): array of angle of each magnetic probe with respect to the x-axis
+    c_angle (NDArray[np.float64]): array of angle of each magnetic probe with respect to the x-axis
     """
     phi1, phi2 = c_angle[0], c_angle[1]
     frac1, frac2 = (signal[0] - signal[2])/(signal[0] + signal[2]), (signal[1] - signal[3])/(signal[1] + signal[3])
+
+    if np.isinf(frac2): print(signal,np.rad2deg(c_angle))
 
     Dx = R/np.sin(phi1-phi2) * ( frac1*np.sin(phi2) - frac2*np.sin(phi1) )
     Dz = R/np.sin(phi1-phi2) * ( -frac1*np.cos(phi2) + frac2*np.cos(phi1) )
