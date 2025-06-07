@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 from .signal_strength import cal_signal
 from typing import Callable
 
-from .geometry_TT1 import coil_angle_dict, R0
+from .geometry_TT1 import coil_angle_dict, R0, base_decimal_precision
 from .DxDz import cal_newton_DxDz
 import pandas as pd
 import warnings
@@ -50,8 +50,7 @@ def cal_beta(DxDz_method: Callable,a: float,taylor_order:int,vertical_shift: flo
     """
     calculate beta coefficient from curve fitting
 
-    :param:
-    DxDz_method (Callable): method for calculation of Dx & Dz (cal_newton_DxDz/cal_approx_DxDz) \n
+    :param DxDz_method (Callable): method for calculation of Dx & Dz (cal_newton_DxDz/cal_approx_DxDz) \n
     :param Dx: point to be estimated on the taylor's series
     taylor_order (int): degree of taylor's polynomial (start from 0)
     vertical_shift (float): plasma shift value along z/vertical direction \n
@@ -69,12 +68,6 @@ def cal_beta(DxDz_method: Callable,a: float,taylor_order:int,vertical_shift: flo
     #p0 -> taylor order + 1 because order n has n+1 coeff
     return sc.optimize.curve_fit(taylor_polynomial, Dx, horizontal_range,p0 = [0.001] * (taylor_order+1),full_output=False,gtol=1e-8, xtol=1e-8)
 
-toroidalFilament_dir = Path(__file__).resolve().parent
-pkl_path = toroidalFilament_dir / "shift_coefficients.pkl"
-with open(pkl_path, "rb") as coefficients_file:
-    alpha_dict = pickle.load(coefficients_file)
-    beta_dict = pickle.load(coefficients_file)
-
 def probe_lst_to_str(lst):
     """
     convert probe numbers stored in list to string for coefficients dictionaries
@@ -86,36 +79,22 @@ def probe_lst_to_str(lst):
         else: arr_str += " " + str(probe_num)
     return arr_str
 
-def find_nearest(num,tree):
-    """
-    find value of nearest key neighbor of a given tree
-    Args:
-        num: input number to find nearest key's value number
-        tree: tree to be traversed
+def coefficient_lookup(val, dict, max_val = 0.13,decimal_precision = base_decimal_precision):
+    round_val = round(val,decimal_precision)
 
-    Returns: value of the nearest key
-    """
-    tree.insert(num,num)
+    key = str(round_val) if round_val != 0 else "0.0"
 
-    if tree.max_key() == num:
-        result = tree.prev_item(num)[1]
-        tree.remove(num)
-        return result
+    if abs(round_val) > abs(max_val):
+        return dict["0.13"] if round_val > 0 else dict["-0.13"]
+    return dict[key]
 
-    elif tree.min_key() == num:
-        result = tree.succ_item(num)[1]
-        tree.remove(num)
-        return result
-
-    (left_key,left_value), (right_key,right_value) = tree.prev_item(num), tree.succ_item(num)
-    tree.remove(num)
-
-    min_diff = min(abs(left_key - num), (abs(right_key - num)))
-    if min_diff == left_key:
-        return left_value
-
-    return right_value
-
+#read coefficient file
+toroidalFilament_dir = Path(__file__).resolve().parent
+pkl_path = toroidalFilament_dir / "coefficient_nested_dict.pkl"
+with open(pkl_path, "rb") as coefficients_file:
+    alpha_dict = pickle.load(coefficients_file)
+    beta_dict = pickle.load(coefficients_file)
+    
 def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_horizontal_shift: float, est_vertical_shift: float, probe_number: list[int],
               alpha_vertical_range = np.linspace(-0.05,0.05,101), beta_horizontal_range = np.linspace(-0.05,0.05,101)) -> NDArray:
     """
@@ -143,8 +122,8 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     probe_key = probe_lst_to_str(probe_number)
 
     #look up the coefficients
-    alpha, a_cov = find_nearest(est_horizontal_shift,alpha_dict[probe_key]) ##
-    beta, b_cov = find_nearest(est_vertical_shift,beta_dict[probe_key]) ##
+    alpha, a_cov = coefficient_lookup(est_horizontal_shift,alpha_dict[probe_key]) ##
+    beta, b_cov = coefficient_lookup(est_vertical_shift,beta_dict[probe_key]) ##
 
     #calculate shift based on Dx Dz and coefficients
 
@@ -152,7 +131,7 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     horizontal_shift = make_taylor(taylor_order, a = 0)(Dx,*beta)
 
     def sigma_f(x, popt, pcov):
-        """Compute the propagated uncertainty σ_f(x)."""
+        """Compute the propagated uncertainty sigma_f(x)."""
         popt, pcov = np.array(popt),np.array(pcov)
         v = np.array([x ** i for i in range(len(popt))])  # Gradient vector (x^0, x^1, x^2, ...)
         var_f = np.dot(v.T, np.dot(pcov, v))  # v^T @ pcov @ v

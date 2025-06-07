@@ -6,6 +6,8 @@ import numpy as np
 Dimensions of TT1 cross-section
 """
 
+base_decimal_precision = 3 #decimal precision of shift value in coefficient dictionary
+
 R0: float = 0.65 #Major radius m
 mu: float = constants.mu_0 #magnetic permittivity constant
 I: float = 100000.0 #Plasma current A
