@@ -122,8 +122,8 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     probe_key = probe_lst_to_str(probe_number)
 
     #look up the coefficients
-    alpha, a_cov = coefficient_lookup(est_horizontal_shift,alpha_dict[probe_key]) ##
-    beta, b_cov = coefficient_lookup(est_vertical_shift,beta_dict[probe_key]) ##
+    alpha, a_cov = coefficient_lookup(est_horizontal_shift,alpha_dict[probe_key])
+    beta, b_cov = coefficient_lookup(est_vertical_shift,beta_dict[probe_key])
 
     #calculate shift based on Dx Dz and coefficients
 
@@ -141,10 +141,10 @@ def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_h
     vertical_shift_uncertainty = sigma_f(Dz,alpha,a_cov)
     horizontal_shift_uncertainty = sigma_f(Dx,beta,b_cov)
 
-    return np.array([
+    return [
         [horizontal_shift, horizontal_shift_uncertainty],
         [vertical_shift, vertical_shift_uncertainty]
-    ])
+    ]
 
 """
 Combine DeltaX and DeltaZ from different crosses

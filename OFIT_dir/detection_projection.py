@@ -117,62 +117,59 @@ def max_gradient(row:NDArray):
     """
     return np.gradient(row)
 
-def find_edge(image,start_row:int, start_ROI,stop_ROI,exclusion_set: set,
+def find_edge(image,start_row:int, left_ROI,right_ROI,exclusion_set: set,
               n_peaks:int = 1,window_size:int = 0,  detection_method_callable:callable = max_intensity):
     """
     detect plasma edge within given image or ROI
 
-    :param image: input image or ROI
-    :param start_pixel: the index of first pixel in ROI (row, column)
+    :param image: input image
+    :param start_row: the index of first pixel in ROI (row, column)
     :param n_peaks: number of pixels to be detected within one row
     :param window_size: limit the search to maximum distance from the last detected column
     :param detection_method: cataegory used to find plasma edge, built-in -> (max_intensity & max_gradient)
     :return: array of detected pixel edge
     """
-    x_edge, y_edge = [], []
+    #Create empty arrays to store the result
+    column_result, row_result = [], []
 
-    x_peak = None
-    x_start, x_stop = start_ROI[0], stop_ROI[0]
-    for index,row in enumerate(range(start_row,start_row + len(start_ROI))): #loop through whole image within specify domain of row
-        ### domain of column (x) ###
-        #update search range by previous peak (x_peak)
+    #intialize window domain for first row as full first row in ROI
+    left_window, right_window = left_ROI[0], right_ROI[0]
 
-        #for first iteration previous peak is not defined and if window_size == 0 then xstart is equal to xmax
-        if index > 0 and window_size > 0:
-            x_start = max(start_ROI[index], x_peak - window_size)
-            x_stop = min(stop_ROI[index], x_peak + window_size)
+    row_in_ROI = range(start_row, start_row + len(left_ROI))
+    for index, row in enumerate(row_in_ROI):
+        ### find peak pixels ###
+        row_intensity = detection_method_callable(image[row, left_window:right_window])
+        max_intensity_indices = np.argsort(row_intensity)[::-1]
 
-        elif window_size == 0:
-            x_start = start_ROI[index]
-            x_stop = stop_ROI[index]
+        #extract n pixels with highest intensity ignoring pixels in exclusion_set
+        filtered_column_peaks = []
 
-        ### find peaks ###
-        #detect peaks by input function
-        signal = detection_method_callable(image[row,x_start:x_stop])
-        max_indices = np.argsort(signal)[::-1]
-
-        #remove edge from port structure
-        filtered_peaks = []
         i = 0
-        while (len(filtered_peaks) < n_peaks) & (i < len(max_indices)):
-            peak = max_indices[i]
-            if ((x_start + peak, row) not in exclusion_set):
-                filtered_peaks.append(peak)
+        while (i<len(max_intensity_indices)) & (len(filtered_column_peaks) < n_peaks):
+            #convert index in list to actual pixel column
+            pixel_column = max_intensity_indices[i] + left_window
+
+            if ((pixel_column, row) not in exclusion_set):
+                filtered_column_peaks.append(pixel_column)
             i += 1
+        
+        # store detected pixels of current row
+        column_result.extend(filtered_column_peaks)
+        row_result.extend([row]*len(filtered_column_peaks))
 
-        #stack solution
-        for px in filtered_peaks:
-            x_edge.append((x_start + px))
-            y_edge.append(row)
+        ### update window search domain for next iteration ###
 
-        ### Update search window for the next iteration ###
-        if len(filtered_peaks) > 0:
-            # Use the first peak to update the search window
-            x_peak = x_start + filtered_peaks[0]
+        if window_size == 0 or len(filtered_column_peaks) == 0:
+            left_window, right_window = left_ROI[index], right_ROI[index]
 
-        else: x_peak = x_start
+        else:
+            #update domain of window while keeping domain within ROI
+            column_peak = filtered_column_peaks[0] #use pixel with highest intensity as window center
 
-    return np.array(x_edge), np.array(y_edge)
+            left_window = max(left_ROI[index], column_peak - window_size)
+            right_window = min(right_ROI[index], column_peak + window_size)
+    
+    return np.array(column_result), np.array(row_result)
 
 def pix_to_projection(x_arr, y_arr,projection_matrix: NDArray, principle_point: tuple[int, int], KB: float=0) -> tuple[NDArray,NDArray]:
     """

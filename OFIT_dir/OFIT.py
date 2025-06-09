@@ -83,11 +83,11 @@ def field_edge_detection(img:np.ndarray, TT1_ROIs:dict = TT1_circular_ROIs, excl
     """
 
     x_high, y_high = find_edge(image=img, start_row=TT1_ROIs["high_first_row"],
-                               start_ROI=TT1_ROIs["ROI_high_x0"], stop_ROI=TT1_ROIs["ROI_high_xf"],
+                               left_ROI=TT1_ROIs["ROI_high_x0"], right_ROI=TT1_ROIs["ROI_high_xf"],
                                exclusion_set=exclusion, n_peaks=n_peaks, window_size=high_window_size,
                                detection_method_callable=detection_method)
-    x_low, y_low = find_edge(image=img, start_row=TT1_ROIs["low_first_row"], start_ROI=TT1_ROIs["ROI_low_x0"],
-                             stop_ROI=TT1_ROIs["ROI_low_xf"],
+    x_low, y_low = find_edge(image=img, start_row=TT1_ROIs["low_first_row"], left_ROI=TT1_ROIs["ROI_low_x0"],
+                             right_ROI=TT1_ROIs["ROI_low_xf"],
                              exclusion_set=exclusion, n_peaks=n_peaks, window_size=low_window_size,
                              detection_method_callable=detection_method)
 

@@ -5,6 +5,8 @@ from matplotlib import pyplot as plt
 from matplotlib import patches
 import matplotlib
 import pickle
+from pathlib import Path
+import os
 
 from .parameters import TT1_linear_pixel_density,TT1_camera_principle_point,TT1_camera_translation,TT1_camera_rotation, TT1_dist_coeffs,TT1_image_kernel, TT1_circular_ROIs
 from .detection_projection import mk_intrinsic_matrix, mk_projection_matrix,kernel_filter,max_intensity, max_gradient, find_edge,pix_to_projection
@@ -23,7 +25,9 @@ TT1_intrinsic_matrix = mk_intrinsic_matrix(linear_pix_density=TT1_linear_pixel_d
 TT1_projection_matrix = mk_projection_matrix(TT1_camera_rotation,TT1_camera_translation,TT1_camera_principle_point,TT1_linear_pixel_density)
 
 ##TT1 circular ROIs is defined in parameters.py
-with open("TT1_port_pixel.pkl","rb") as structure_edge:
+OFIT_dir = Path(__file__).resolve().parent
+pkl_path = os.path.join(OFIT_dir,"TT1_port_pixel.pkl")
+with open(pkl_path,"rb") as structure_edge:
     port_set = pickle.load(structure_edge)
 
 def OFIT_plotting(image: NDArray,
