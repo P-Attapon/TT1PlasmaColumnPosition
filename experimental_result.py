@@ -19,7 +19,7 @@ from methods_OFIT.parameters import TT1_major_radius
 plt.style.use("seaborn-v0_8-dark-palette")
 
 #defined experimental shot numbers to be used
-shot_lst = [969]
+shot_lst = [2308]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = 40 #ms
@@ -119,6 +119,40 @@ for shot_no in shot_lst:
     fig.suptitle(f"result of shot {shot_no}")
 
     save_path = os.path.join("result_plot", str(shot_no))
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.clf()
+
+    fig, (axR, axZ) = plt.subplots(1,2,figsize = (8,6))
+
+    def derivative_toroidal_filament_plot(ax,arr,arr_err):
+        for t, shift, err, probe_arr in zip(valid_time, arr, arr_err,use_probes):
+            line = ax.plot(t,np.gradient(shift),label = f"{probe_arr}",alpha = 0.5)
+
+    derivative_toroidal_filament_plot(axR,toroidal_R0_arr,toroidal_R0_err)
+    derivative_toroidal_filament_plot(axZ,toroidal_Z0_arr,toroidal_Z0_err)
+
+    axR.plot(OFIT_time, np.gradient(OFIT_Rshift), color="black", label="OFIT")
+
+    axZ.plot(OFIT_time, np.gradient(OFIT_Zshift), color="black", label="OFIT")
+
+    axR.set_ylabel(r"$\frac{d\Delta_R}{dt}$ [m/s]")
+    axR.set_title("plasma horizontal shift")
+
+    axZ.set_ylabel(r"$\frac{d\Delta_Z}{dt}$ [m/s]")
+    axZ.set_title("plasma vertical shift")
+
+    axZ.legend(ncol=2, title = "Magnetic probe numbers")
+
+    for ax in (axR,axZ):
+        ax.set_xlim(discharge_begin, end_time)
+        ax.set_ylim(-0.1,0.1)
+        ax.grid()
+        ax.set_xlabel("time [ms]")
+
+    fig.suptitle(f"result of shot {shot_no}")
+
+    save_path = os.path.join("result_plot", str(shot_no) + "Derivative")
     plt.tight_layout()
     plt.savefig(save_path)
     plt.clf()
