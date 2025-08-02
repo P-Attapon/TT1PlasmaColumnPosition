@@ -1,6 +1,5 @@
 import numpy as np
 import scipy as sc
-import warnings
 from numpy.typing import NDArray
 from .parameters import R0, mu, I, R
 

@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.typing import NDArray
 from typing import Callable
 
 from .parameters import coil_angle_dict, base_decimal_precision, shift_domain, probe_lst_to_str

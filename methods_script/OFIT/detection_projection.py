@@ -4,6 +4,8 @@ from .parameters import *
 
 """
 Functions to perform pixel edge detection and transform to Tokamak's projection plane
+
+In the future once projection parameters are know, the parameters will be kept in "parameters.py" to prevent repeating calculation
 """
 
 def set_ROI(image:NDArray, y1:int,x1:int,y2:int,x2:int) -> NDArray:
@@ -195,6 +197,8 @@ def pix_to_projection(x_arr, y_arr,projection_matrix: NDArray, principle_point: 
 
     P = projection_matrix
 
+    ### This part will be change  to incoporate transformation with projection equation as accurate projection parameters are known ###
+
     wc,uc,vc = (0.8310871342332974, 0.5193208789485408, -0.036)
     K = 2.5E-4
 
@@ -202,15 +206,6 @@ def pix_to_projection(x_arr, y_arr,projection_matrix: NDArray, principle_point: 
     u_arr,v_arr = np.array([]), np.array([])
 
     for x,y in barrel_edge:
-        # #form matrix to solve for u and v
-        # MatA = np.array([
-        #     [P[0,0], P[0,1], -x],
-        #     [P[1,0], P[1,1], -y],
-        #     [P[2,0], P[2,1], -1]
-        # ])
-        # MatB = np.array([-P[0,3], -P[1,3], -P[2,3]])
-
-        # u, v, _ = np.linalg.solve(MatA, MatB) #solve for u, v, w_tildae
 
         u = wc * K * (x - x0) + uc
         v = wc * K * (y - y0) + vc

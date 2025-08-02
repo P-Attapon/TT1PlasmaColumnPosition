@@ -4,10 +4,10 @@ from matplotlib.ticker import ScalarFormatter
 import numpy as np
 import pandas as pd
 
-from methods_toroidal_filament.DxDz import cal_newton_DxDz as cal_DxDz
-from methods_toroidal_filament.plasma_shift import toroidal_filament_shift_progression
-from methods_toroidal_filament.signal_strength import coil_signal
-from methods_toroidal_filament.parameters import coil_angle_dict, R0, R, all_arrays
+from methods_script.toroidal_filament.DxDz import cal_newton_DxDz as cal_DxDz
+from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
+from methods_script.toroidal_filament.signal_strength import coil_signal
+from methods_script.toroidal_filament.parameters import coil_angle_dict, R0, R, all_arrays
 ### simulate magnetic probe signal
 
 plt.rcParams.update({
@@ -104,63 +104,4 @@ for i in range(num_row):
 
 ax[0,0].set_ylim(-0.3,0.3)
 
-# handles, labels = [], []
-# for axis in ax:
-#     h, l = axis.get_legend_handles_labels()
-#     handles += h
-#     labels += l
-
-# # Place the figure legend
-# fig.legend(handles, labels, loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.02))
-# plt.tight_layout()
-# plt.subplots_adjust(bottom=0.3)  # or even 0.35 if needed
 plt.show()
-
-
-R_errors,R_sd = [],[]
-Z_errors,Z_sd = [],[]
-
-for R, Re, Z, Ze, probes in zip(R_arr, R_err, Z_arr, Z_err, use_probes):
-    R_error = np.abs(np.array(R[1:]) - np.array(R_sim))  # exclude first element
-    Z_error = np.abs(np.array(Z[1:]) - np.array(Z_sim))
-
-    # Save for later
-    R_errors.extend(R_error)
-    Z_errors.extend(Z_error)
-
-    R_sd.extend(Re)
-    Z_sd.extend(Ze)
-
-def mk_histogram(arr, title, x_label, ax):
-    # ====> Print overall mean error
-    print(f"{title}: {np.mean(arr)}")
-
-    mean = np.mean(arr)
-
-    # ====> Plot histogram
-    ax.hist(arr, bins=30)
-    ax.axvline(mean, color="red", label="mean", lw=2)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel("Count")
-    ax.set_title(title)
-    ax.grid(True)
-
-    ax.xaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-    ax.ticklabel_format(axis='x', style='sci', scilimits=(0, 0))
-    ax.set_xlim(left=0)
-    ax.legend(loc="upper right")
-
-# Create subplots
-fig, ax = plt.subplots(2, 2, figsize=(12, 10))
-
-# Fill subplots
-mk_histogram(R_errors, r"$absolute \ residual \ of \ \Delta_R$", r"$y - \hat{y} \ [m]$", ax[0, 0])
-mk_histogram(Z_errors, r"$absolute \ residual \ of \ \Delta_Z$", r"$y - \hat{y} \ [m]$", ax[0, 1])
-mk_histogram(R_sd, r"uncertainty histogram of $\Delta_R$", r"$\sigma$ [m]", ax[1, 0])
-mk_histogram(Z_sd, r"uncertainty histogram of $\Delta_Z$", r"$\sigma$ [m]", ax[1, 1])
-
-# Adjust layout and save once
-plt.tight_layout()
-save_path = r"C:\\Users\\pitit\\Documents\\01_MUIC_work\\ICPY 441 Senior project\\columnPositionPaper\\latex\images\\"
-# plt.savefig(save_path + "all_histograms.png")
-plt.close()
