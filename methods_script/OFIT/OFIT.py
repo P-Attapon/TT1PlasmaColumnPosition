@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import pickle
 from pathlib import Path
+import os
 
 from tqdm import tqdm
 
@@ -24,7 +25,7 @@ TT1_projection_matrix = mk_projection_matrix(TT1_camera_rotation,TT1_camera_tran
 
 #path to pkl file
 OFIT_dir = Path(__file__).resolve().parent
-pkl_path = OFIT_dir / "TT1_port_pixel.pkl"
+pkl_path = os.path.join(OFIT_dir, "TT1_port_pixel.pkl")
 
 with open(pkl_path,"rb") as structure_edge:
     port_set = pickle.load(structure_edge)

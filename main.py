@@ -7,7 +7,7 @@ import os
 import cv2
 
 #toroidal filament functions
-from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities
+from methods_script.toroidal_filament.process_probe_data import retrieve_plasma_current, retrieve_magnetic_signal,trim_quantities, read_txt, path_full_shot_directory
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
 from methods_script.toroidal_filament.parameters import all_arrays
 
@@ -21,11 +21,18 @@ plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
 use_toroidal_filament_model = True
-use_OFIT = True
+signal_calibration = True
+use_OFIT = False
 use_calibration_plane_transformation = True
 
+#specify probe sets to be used
+use_probes = [[2,4,8,10]] #specify magnetic probes to be used (all_arrays for all combination)
+
+# Is the data in excel workbook or fullShotData
+is_excel = False 
+
 #defined experimental shot numbers to be used
-shot_lst = [926]
+shot_lst = [1641, 1643, 2766]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = 40 #ms
@@ -40,15 +47,15 @@ for shot_no in shot_lst:
     if use_toroidal_filament_model:
         #calculate noise removed signal, time steps, discharge begin time, discharge end time from experimental data
 
-        try:
-            recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retreive_plasma_current(shot_no)
-        except ValueError:
-            print(f"discharge time can't be determined for shot {shot_no}")
-            continue
+        # try:
+        recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retrieve_plasma_current(shot_no,is_excel)
+        # except ValueError:
+            # print(f"discharge time can't be determined for shot {shot_no}")
+            # continue
 
         ### toroidal filament model ###
 
-        recorded_magnetic_signal = retreive_magnetic_signal(shot_no)
+        recorded_magnetic_signal = retrieve_magnetic_signal(shot_no,is_excel)
 
         end_time = min(discharge_begin + time_extension, discharge_end) 
 
@@ -56,9 +63,15 @@ for shot_no in shot_lst:
         time, plasma_current, plasma_signal = trim_quantities(recorded_time,recorded_magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
 
         #calculate shift with toroidal filament
-        use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)
+        shot_directory = os.path.join(path_full_shot_directory,str(shot_no))
+
+        _, toroidal_current = read_txt(os.path.join(shot_directory,"IT1.txt"))
+        _, ohmic_current = read_txt(os.path.join(shot_directory,"IOH1.txt"))
+        _, vertical_current = read_txt(os.path.join(shot_directory,"IV1.txt"))
+
         #result for toroidal filament model
-        valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
+        valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,toroidal_current,ohmic_current,vertical_current,
+                                                                                                                             use_probes,calibration=signal_calibration)
 
     ### retreive images for OFIT and calibration plane transformation ###
 
@@ -169,7 +182,7 @@ for shot_no in shot_lst:
 
     fig.suptitle(f"result of shot {shot_no}")
 
-    save_path = os.path.join("calibration_plane_result", str(shot_no))
+    save_path = os.path.join("result_plot", "calibration_plane_result", f"{shot_no}")
     plt.tight_layout()
     plt.savefig(save_path)
     plt.clf()

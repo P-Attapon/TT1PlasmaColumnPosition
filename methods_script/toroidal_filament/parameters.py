@@ -14,7 +14,16 @@ mu: float = constants.mu_0 #magnetic permittivity constant
 I: float = 100000.0 #Plasma current A
 R:float = 0.321 #Radial distance from cross-sectional center to each coil m
 
-def probe_angle(tup):
+### magnetic coils calibration coefficients ###
+
+calibration_coeff = {
+    "k1t":6.442013e-7, "k2t":3.893109e-6, "k3t":5.609482e-6, "k4t":7.996120e-10, "k5t":7.386394e-6, "k6t":1.071316e-5, "k7t":1.656134e-6, "k8t": -8.151711e-6, "k9t": -7.994738e-6, "k10t": -8.796583e-6, "k11t": 4.946744e-5, "k12t":2.036549e-5,
+    "k1oh":1.014753e-7, "k2oh": 5.859688e-7, "k3oh":6.721281e-7, "k4oh":1.044179e-7, "k5oh":9.914261e-8,"k6oh":7.215905e-7, "k7oh":1.401970e-6,"k8oh":1.140048e-6, "k9oh":6.157902e-7, "k10oh":6.164191e-7, "k11oh":8.736136e-6, "k12oh":3.164270e-6,
+    "k1v":2.606853e-4, "k2v": 1.407044e-4, "k3v":1.590115e-4, "k4v":1.030877e-4, "k5v":2.036195e-4, "k6v":-1.290662e-4, "k7v":-4.608017e-4, "k8v":1.548310e-4, "k9v":-6.629803e-5, "k10v":-3.458683e-4, "k11v":-9.319387e-5,"k12v":-2.539773e-5
+}
+
+def probe_angle(tup): 
+    #calculate probe's orientation based on poloidal position
     r, z = tup
     return np.arctan2(z,(r-R0 * 1000))
 
@@ -39,6 +48,7 @@ coil_angle_dict = {
     12: probe_angle((925.8, -173.3))
 }
 
+#list of all probe combinations
 all_arrays = [[11, 12, 5, 6], [11, 1, 5, 7], [11, 2, 5, 8], [11, 3, 5, 9], [11, 4, 5, 10], [12, 1, 6, 7], [12, 2, 6, 8],
               [12, 3, 6, 9], [12, 4, 6, 10], [1, 2, 7, 8], [1, 3, 7, 9], [1, 4, 7, 10], [2, 3, 8, 9], [2, 4, 8, 10], [3, 4, 9, 10]]
 

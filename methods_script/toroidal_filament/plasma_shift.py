@@ -1,16 +1,19 @@
 import numpy as np
 from typing import Callable
+import pandas as pd
 
-from .parameters import coil_angle_dict, base_decimal_precision, shift_domain, probe_lst_to_str
+from .parameters import coil_angle_dict, base_decimal_precision, shift_domain, probe_lst_to_str, calibration_coeff
+from .signal_calibration import magnetic_field_calibration
 from .DxDz import cal_newton_DxDz
 import pandas as pd
 import pickle
 from tqdm import tqdm
 from pathlib import Path
+import os
 
 #read coefficient file
 toroidalFilament_dir = Path(__file__).resolve().parent
-pkl_path = toroidalFilament_dir / "coefficient_nested_dict.pkl"
+pkl_path = os.path.join(toroidalFilament_dir, "coefficient_nested_dict.pkl")
 with open(pkl_path, "rb") as coefficients_file:
     alpha_dict = pickle.load(coefficients_file)
     beta_dict = pickle.load(coefficients_file)
@@ -86,7 +89,7 @@ Combine DeltaX and DeltaZ from different crosses
 """
 
 #shift progression
-def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFrame,probe_number:list[list[int]],taylor_order:int = 3,DxDz_method = cal_newton_DxDz):
+def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFrame,toroidal_current,ohmic_current,verticel_current,probe_number:list[list[int]],taylor_order:int = 3,DxDz_method = cal_newton_DxDz,calibration = True):
     """
     use magnetic signal to calculate plasma shift at each time step for each specified array in magnetic probes
 
@@ -105,12 +108,17 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
     Z0_arr,Z0_err_arr = [[0]for _ in range(num_result)], [[0]for _ in range(num_result)]
     valid_time = [[0] for _ in range(num_result)]
 
-    for t, signal in tqdm(zip(
-        time_df.to_numpy(),signal_df.to_numpy()
+    for t, signal,It, Ioh, Iv in tqdm(zip(
+        time_df.to_numpy(),signal_df.to_numpy(), toroidal_current, ohmic_current,verticel_current
     ),total = len(time_df),desc = "toroidal filament model"):
         #retreive signals for each probe arrays
-        signal_df = [[signal[coil] for coil in group] for group in probe_number]
-
+        if calibration:
+            signal_df = [
+                [magnetic_field_calibration(signal[coil],calibration_coeff[f"k{coil}t"], It, calibration_coeff[f"k{coil}oh"],Ioh,calibration_coeff[f"k{coil}v"],Iv) for coil in group] for group in probe_number
+                ]
+        else:
+            signal_df = [[signal[coil] for coil in group] for group in probe_number]
+            
         #calculate shift for each probe arrays
         for i,s in enumerate(signal_df):
 

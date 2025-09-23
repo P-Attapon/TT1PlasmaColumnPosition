@@ -8,9 +8,85 @@ from scipy.signal import find_peaks
 retreive and process experimental data for toroidal filament model
 """
 
-path_plasma_current = os.getcwd() + r"\resources\magneticSignal\Plasma current for plasma position.xlsx"
-path_magnetic_signal = os.getcwd() + r"\resources\magneticSignal\Magnetic probe GBP_T for plasma position.xlsx"
+path_plasma_current = os.path.join(os.getcwd(),"resources","magneticSignal","Plasma current for plasma position.xlsx")
+path_magnetic_signal = os.path.join(os.getcwd(),"resources","magneticSignal","Magnetic probe GBP_T for plasma position.xlsx")
+path_full_shot_directory = os.path.join(os.getcwd(), "resources", "fullShotData")
 
+##### Data acquisition #####
+
+def read_txt(file):
+    """
+    read out first and second columns from text file data
+    :param file: file location
+    :return: separated columns
+    """
+    df = pd.read_csv(file, sep = "\s+", skiprows=8,header = None)
+
+    col1 = df.iloc[:,0]
+    col2 = df.iloc[:,1]
+
+    return col1, col2
+
+def retrieve_plasma_current(shot_no, is_excel = True):
+    """
+    retrieve plasma current along with time and calculate discharge time
+
+    :param shot_no: experimental shot number
+    :param is_excel: specify if data is stored in excel workbook in magneticSignal folder or fullShotData
+    :return: (recorded_plasma_current_df, recorded_time_df, start_discharge, end_discharge)
+    """
+
+    if is_excel:
+
+        plasma_current_df = pd.read_excel(path_plasma_current, sheet_name = "Sheet1")
+
+        recorded_time_df = plasma_current_df.loc[:, "Time [ms]"]
+        recorded_plasma_current_df = plasma_current_df.loc[:,shot_no]
+
+    else:
+        shot_no = str(shot_no)
+        path = os.path.join(path_full_shot_directory,shot_no,"IP1.txt")
+        recorded_time_df, recorded_plasma_current_df = read_txt(path)
+
+    start_discharge, end_discharge = discharge_duration(recorded_time_df, recorded_plasma_current_df)
+    return recorded_plasma_current_df, recorded_time_df, start_discharge, end_discharge
+
+def retrieve_magnetic_signal(shot_no,is_excel = True):
+    """
+    retrieve magnetic signal
+
+    :param shot_no: experimental shot number
+    :param is_excel: specify if data is stored in excel workbook in magneticSignal folder or fullShotData
+    :return: data frame of corrected signal (magnetic_signal_df)
+    """
+
+    if is_excel:
+        magnetic_signal_df = pd.read_excel(path_magnetic_signal, sheet_name = f"shot_{shot_no}")
+
+        #one of the column has more data points
+        min_len = magnetic_signal_df.dropna().shape[0]
+        magnetic_signal_df = magnetic_signal_df.iloc[:min_len]
+
+    else:
+        probe_names = [f"GBP{i}T" for i in range(1,13)]
+        headers = ["Time (ms)"] + probe_names
+
+        magnetic_signal_df = pd.DataFrame(columns= headers)
+
+        for probe in probe_names:
+            file = os.path.join(path_full_shot_directory, str(shot_no), probe + ".txt")
+            time, magnetic_signal = read_txt(file)
+
+            magnetic_signal_df[probe] = magnetic_signal
+        
+        magnetic_signal_df["Time (ms)"] = time
+
+    return magnetic_signal_df
+
+###########
+
+
+##### Calculation from raw data #####
 def discharge_duration(time, plasma_current,Ip_threshold = 2500) -> tuple:
     """
     Calculate discharge time from plasma current using maximum current as reference.
@@ -45,37 +121,6 @@ def discharge_duration(time, plasma_current,Ip_threshold = 2500) -> tuple:
     
     return time_begin,time_end
 
-def retreive_plasma_current(shot_no):
-    """
-    retreive plasma current along with time and calculate discharge time
-
-    :param shot_no: experimental shot number
-    :return: (recorded_plasma_current_df, recorded_time_df, start_discharge, end_discharge)
-    """
-    plasma_current_df = pd.read_excel(path_plasma_current, sheet_name = "Sheet1")
-
-    recorded_time_df = plasma_current_df.loc[:, "Time [ms]"]
-    recorded_plasma_current_df = plasma_current_df.loc[:,shot_no]
-
-    start_discharge, end_discharge = discharge_duration(recorded_time_df, recorded_plasma_current_df)
-
-    return recorded_plasma_current_df, recorded_time_df, start_discharge, end_discharge
-
-def retreive_magnetic_signal(shot_no):
-    """
-    retreive magnetic signal from excel workbook
-
-    :param shot_no: experimental shot number
-    :return: data frame of corrected signal (magnetic_signal_df)
-    """
-    magnetic_signal_df = pd.read_excel(path_magnetic_signal, sheet_name = f"shot_{shot_no}")
-
-    #one of the column has more data points
-    min_len = magnetic_signal_df.dropna().shape[0]
-    magnetic_signal_df = magnetic_signal_df.iloc[:min_len]
-
-    return magnetic_signal_df
-
 def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_df,t1,t2):
     """
     trim data frame of magnetic signal, time, and plasma current to be within desired time 
@@ -100,3 +145,5 @@ def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_
     #remove noise using signal at t1
     trimmed_magnetic_signal_df = trimmed_magnetic_signal_df - trimmed_magnetic_signal_df.iloc[0]
     return trimmed_time_df.iloc[1:], trimmed_plasma_current_df.iloc[1:], trimmed_magnetic_signal_df.iloc[1:]
+
+###############################################
