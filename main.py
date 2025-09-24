@@ -32,7 +32,7 @@ use_probes = [[2,4,8,10]] #specify magnetic probes to be used (all_arrays for al
 is_excel = False 
 
 #defined experimental shot numbers to be used
-shot_lst = [1641, 1643, 2766]
+shot_lst = [2766]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = 40 #ms
@@ -57,7 +57,8 @@ for shot_no in shot_lst:
 
         recorded_magnetic_signal = retrieve_magnetic_signal(shot_no,is_excel)
 
-        end_time = min(discharge_begin + time_extension, discharge_end) 
+        # end_time = min(discharge_begin + time_extension, discharge_end) 
+        end_time = discharge_end
 
         #trim the quantities to be within time discharge_begin to end_time
         time, plasma_current, plasma_signal = trim_quantities(recorded_time,recorded_magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
@@ -164,7 +165,7 @@ for shot_no in shot_lst:
     
     if use_calibration_plane_transformation:
         axR.plot(calibration_plane_df["time"], calibration_plane_df["x0"],".--")
-        axZ.plot(calibration_plane_df["time"], calibration_plane_df["y0"],".--", label = "calibration")
+        axZ.plot(calibration_plane_df["time"], calibration_plane_df["y0"],".--", label = "calibration plane result")
 
     axR.set_ylabel(r"$\Delta_R$ [m]")
     axR.set_title("plasma horizontal shift")

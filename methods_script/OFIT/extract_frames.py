@@ -10,7 +10,7 @@ def extract_frames(video_path, output_folder):
         output_folder (str): The path to the folder where frames will be saved.
     """
     # Create the output folder if it doesn't exist
-    os.makedirs(output_folder, exist_ok=True)
+    os.makedirs(output_folder,exist_ok=True)
 
     # Open the video file
     cap = cv2.VideoCapture(video_path)
@@ -20,7 +20,7 @@ def extract_frames(video_path, output_folder):
         print(f"Error: Could not open video file {video_path}")
         return
 
-    frame_count = 0
+    frame_count = 1
     while True:
         # Read a frame from the video
         ret, frame = cap.read()
@@ -30,7 +30,7 @@ def extract_frames(video_path, output_folder):
             break
 
         # Construct the filename for the current frame
-        frame_filename = os.path.join(output_folder, f"frame_{frame_count:05d}.jpg")
+        frame_filename = os.path.join(output_folder, f"{frame_count}.jpg")
 
         # Save the frame as an image file
         cv2.imwrite(frame_filename, frame)
@@ -42,12 +42,15 @@ def extract_frames(video_path, output_folder):
     print(f"Extracted {frame_count} frames to {output_folder}")
 
 if __name__ == "__main__":
-    # Specify the path to your video file
-    video_file = "resources/fullShotData/1641/1641.avi"
+    new_shots = [1641, 1643, 2766]
 
-    # Specify the output folder for the frames
-    frames_output_dir = "resources/TTI frame/1641"
+    for curr_shot in new_shots:
+        # Specify the path to your video file
+        video_file = f"resources/fullShotData/{curr_shot}/{curr_shot}.avi"
 
-    # Call the function to extract frames
-    extract_frames(video_file, frames_output_dir)
+        # Specify the output folder for the frames
+        frames_output_dir = f"resources/TTI frame/{curr_shot}/{curr_shot}_frames_jpg"
+
+        # Call the function to extract frames
+        extract_frames(video_file, frames_output_dir)
 
