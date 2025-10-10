@@ -21,21 +21,21 @@ plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
 use_toroidal_filament_model = True
-signal_calibration = True
+signal_calibration = False
 use_OFIT = False
-use_calibration_plane_transformation = True
+use_calibration_plane_transformation = False
 
 #specify probe sets to be used
-use_probes = [[2,4,8,10]] #specify magnetic probes to be used (all_arrays for all combination)
+use_probes = [[2,4,8,10],[1,4,7,10]] #specify magnetic probes to be used (all_arrays for all combination)
 
 # Is the data in excel workbook or fullShotData
 is_excel = False 
 
 #defined experimental shot numbers to be used
-shot_lst = [2766]
+shot_lst = [1641]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
-time_extension = 40 #ms
+time_extension = np.inf #ms
 
 #function to convert frame number to time with given formula
 frame_to_time = lambda frame: frame/2 + 260
@@ -185,5 +185,6 @@ for shot_no in shot_lst:
 
     save_path = os.path.join("result_plot", "calibration_plane_result", f"{shot_no}")
     plt.tight_layout()
-    plt.savefig(save_path)
-    plt.clf()
+    plt.show()
+    # plt.savefig(save_path)
+    # plt.clf()

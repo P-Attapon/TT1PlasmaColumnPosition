@@ -142,8 +142,6 @@ def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_
     #extract region within interval
     trimmed_magnetic_signal_df = magnetic_signal_df[(magnetic_signal_df["Time (ms)"] > t1) & (magnetic_signal_df["Time (ms)"] < t2)]
 
-    #remove noise using signal at t1
-    trimmed_magnetic_signal_df = trimmed_magnetic_signal_df - trimmed_magnetic_signal_df.iloc[0]
     return trimmed_time_df.iloc[1:], trimmed_plasma_current_df.iloc[1:], trimmed_magnetic_signal_df.iloc[1:]
 
 ###############################################
