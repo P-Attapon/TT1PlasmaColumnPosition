@@ -22,7 +22,7 @@ plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
 use_toroidal_filament_model = True
-signal_calibration = False
+signal_calibration = True
 use_OFIT = False
 use_calibration_plane_transformation = False
 
@@ -185,7 +185,7 @@ for shot_no in shot_lst:
 
     for ax in (axR,axZ):
         ax.set_xlim(discharge_begin, end_time)
-        ax.set_ylim(-0.3,0.3)
+        ax.set_ylim(-3,3)
         ax.grid()
         ax.set_xlabel("time [ms]")
 
