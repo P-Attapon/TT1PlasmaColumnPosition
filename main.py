@@ -9,7 +9,8 @@ import cv2
 #toroidal filament functions
 from methods_script.toroidal_filament.process_probe_data import retrieve_plasma_current, retrieve_magnetic_signal,trim_quantities, read_txt, path_full_shot_directory
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
-from methods_script.toroidal_filament.parameters import all_arrays
+from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff
+from methods_script.toroidal_filament.signal_calibration import calibrate_signal_df
 
 #OFIT
 from methods_script.OFIT.OFIT import OFIT, process_image, field_edge_detection
@@ -64,14 +65,21 @@ for shot_no in shot_lst:
         time, plasma_current, plasma_signal = trim_quantities(recorded_time,recorded_magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
 
         #calculate shift with toroidal filament
-        shot_directory = os.path.join(path_full_shot_directory,str(shot_no))
 
-        _, toroidal_current = read_txt(os.path.join(shot_directory,"IT1.txt"))
-        _, ohmic_current = read_txt(os.path.join(shot_directory,"IOH1.txt"))
-        _, vertical_current = read_txt(os.path.join(shot_directory,"IV1.txt"))
+        #signal calibration
 
+        if signal_calibration:
+            shot_directory = os.path.join(path_full_shot_directory,str(shot_no))
+
+            raw_time, toroidal_current = read_txt(os.path.join(shot_directory,"IT1.txt"))
+            _, ohmic_current = read_txt(os.path.join(shot_directory,"IOH1.txt"))
+            _, vertical_current = read_txt(os.path.join(shot_directory,"IV1.txt"))
+
+            
+            plasma_signal = calibrate_signal_df(plasma_signal,raw_time,discharge_begin,discharge_end,toroidal_current,ohmic_current,vertical_current)
+                    
         #result for toroidal filament model
-        valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,toroidal_current,ohmic_current,vertical_current,
+        valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,
                                                                                                                              use_probes,calibration=signal_calibration)
 
     ### retreive images for OFIT and calibration plane transformation ###
