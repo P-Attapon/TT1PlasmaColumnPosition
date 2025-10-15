@@ -7,7 +7,7 @@ import os
 import cv2
 
 #toroidal filament functions
-from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities
+from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, magnetic_field_calibration, read_txt,path_full_shot_directory
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
 from methods_script.toroidal_filament.parameters import all_arrays
 
@@ -52,7 +52,13 @@ for shot_no in shot_lst:
         magnetic_signal = retreive_magnetic_signal(shot_no)
 
         if calibrate_magnetic_signal:
-            pass
+            shot_directory = os.path.join(path_full_shot_directory,str(shot_no))
+
+            toroidal_current = read_txt(os.path.join(shot_directory,"IT1.txt"),["Time (ms)", "It"])
+            ohmic_current = read_txt(os.path.join(shot_directory,"IOH1.txt"), ["Time (ms)", "Ioh"])
+            vertical_current = read_txt(os.path.join(shot_directory,"IV1.txt"), ["Time (ms)", "Iv"])
+            
+            magnetic_signal = calibrate_magnetic_signal(magnetic_signal,toroidal_current,ohmic_current,vertical_current)
 
         end_time = min(discharge_begin + time_extension, discharge_end) 
         #trim the quantities to be within time discharge_begin to end_time

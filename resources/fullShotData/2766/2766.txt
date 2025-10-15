@@ -1,0 +1,12 @@
+ShotNo:2766
+FrameRate:2000
+FrameCount:400
+ExposureTime:490
+FrameWidth:1920
+FrameHeight:1080
+GainR:1.08594
+GainG:1.03125
+GainB:1.11719
+Luminance:50
+Contrast:50
+AnalogGain:x1
