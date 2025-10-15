@@ -21,6 +21,7 @@ plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
 use_toroidal_filament_model = True
+calibrate_magnetic_signal = False
 use_OFIT = False
 use_calibration_plane_transformation = False
 
@@ -48,26 +49,14 @@ for shot_no in shot_lst:
 
         ### toroidal filament model ###
 
-        recorded_magnetic_signal = retreive_magnetic_signal(shot_no)
+        magnetic_signal = retreive_magnetic_signal(shot_no)
+
+        if calibrate_magnetic_signal:
+            pass
 
         end_time = min(discharge_begin + time_extension, discharge_end) 
-
         #trim the quantities to be within time discharge_begin to end_time
-        time, plasma_current, plasma_signal = trim_quantities(recorded_time,recorded_magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
-
-        for col in plasma_signal.columns:
-            if col != "Time (ms)":
-                plt.plot(time, plasma_signal[col], label = col)
-        plt.xlabel("Time (ms)")
-        plt.ylabel("Signal [T]")
-        plt.title("signal from old script")
-        plt.ylim(-0.1,0.04)
-        plt.grid()
-        plt.legend()
-
-
-        plt.show()
-        break
+        time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
 
         #calculate shift with toroidal filament
         use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)

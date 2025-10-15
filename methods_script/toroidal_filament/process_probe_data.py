@@ -15,6 +15,21 @@ path_magnetic_signal = os.path.join(
     os.getcwd(), "resources", "magneticSignal", "Magnetic probe GBP_T for plasma position.xlsx"
 )
 
+path_full_shot_directory = os.path.join(os.getcwd(), "resources", "fullShotData")
+
+def read_txt(file,columns):
+    """
+    read out first and second columns from text file data
+    :param file: file location
+    :param header: header of df
+    :return: separated columns
+    """
+    df = pd.read_csv(file, sep = "\s+", skiprows=8,header = None, names = columns)
+
+    return df
+
+
+
 def discharge_duration(time, plasma_current,Ip_threshold = 2500) -> tuple:
     """
     Calculate discharge time from plasma current using maximum current as reference.
@@ -56,13 +71,21 @@ def retreive_plasma_current(shot_no):
     :param shot_no: experimental shot number
     :return: (recorded_plasma_current_df, recorded_time_df, start_discharge, end_discharge)
     """
-    plasma_current_df = pd.read_excel(path_plasma_current, sheet_name = "Sheet1")
 
-    recorded_time_df = plasma_current_df.loc[:, "Time [ms]"]
-    recorded_plasma_current_df = plasma_current_df.loc[:,shot_no]
+    #if file is stored in Excel format (Submitted by Suebsak)
+    try:
+        plasma_current_df = pd.read_excel(path_plasma_current, sheet_name = "Sheet1")
+
+        recorded_time_df = plasma_current_df.loc[:, "Time [ms]"]
+        recorded_plasma_current_df = plasma_current_df.loc[:,shot_no]
+    
+    #if file in directory format (Submitted by Apisit)
+    except FileNotFoundError:
+        shot_no = str(shot_no)
+        path = os.path.join(path_full_shot_directory,shot_no,"IP1.txt")
+        recorded_plasma_current_df = read_txt(path, ["Time (ms)", "Ip"])
 
     start_discharge, end_discharge = discharge_duration(recorded_time_df, recorded_plasma_current_df)
-
     return recorded_plasma_current_df, recorded_time_df, start_discharge, end_discharge
 
 def retreive_magnetic_signal(shot_no):
@@ -72,12 +95,28 @@ def retreive_magnetic_signal(shot_no):
     :param shot_no: experimental shot number
     :return: data frame of corrected signal (magnetic_signal_df)
     """
-    magnetic_signal_df = pd.read_excel(path_magnetic_signal, sheet_name = f"shot_{shot_no}")
+    try:
+        magnetic_signal_df = pd.read_excel(path_magnetic_signal, sheet_name = f"shot_{shot_no}")
 
-    #one of the column has more data points
-    min_len = magnetic_signal_df.dropna().shape[0]
-    magnetic_signal_df = magnetic_signal_df.iloc[:min_len]
+        #one of the column has more data points
+        min_len = magnetic_signal_df.dropna().shape[0]
+        magnetic_signal_df = magnetic_signal_df.iloc[:min_len]
 
+    except FileNotFoundError:
+        probe_names = [f"GBP{i}T" for i in range(1,13)]
+        headers = ["Time (ms)"] + probe_names
+
+        magnetic_signal_df = pd.DataFrame(columns= headers)
+
+        for probe in probe_names:
+            file = os.path.join(path_full_shot_directory, str(shot_no), probe + ".txt")
+            probe_signal = read_txt(file, ["Time (ms)", probe])
+
+            magnetic_signal_df[probe] = probe_signal[probe]
+            time = probe_signal["Time (ms)"]
+        
+        magnetic_signal_df["Time (ms)"] = time
+        
     return magnetic_signal_df
 
 def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_df,t1,t2):
