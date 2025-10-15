@@ -21,14 +21,14 @@ plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
 use_toroidal_filament_model = True
-use_OFIT = True
-use_calibration_plane_transformation = True
+use_OFIT = False
+use_calibration_plane_transformation = False
 
 #defined experimental shot numbers to be used
-shot_lst = [926]
+shot_lst = [966]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
-time_extension = 40 #ms
+time_extension = np.inf #ms
 
 #function to convert frame number to time with given formula
 frame_to_time = lambda frame: frame/2 + 260
@@ -54,6 +54,20 @@ for shot_no in shot_lst:
 
         #trim the quantities to be within time discharge_begin to end_time
         time, plasma_current, plasma_signal = trim_quantities(recorded_time,recorded_magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
+
+        for col in plasma_signal.columns:
+            if col != "Time (ms)":
+                plt.plot(time, plasma_signal[col], label = col)
+        plt.xlabel("Time (ms)")
+        plt.ylabel("Signal [T]")
+        plt.title("signal from old script")
+        plt.ylim(-0.1,0.04)
+        plt.grid()
+        plt.legend()
+
+
+        plt.show()
+        break
 
         #calculate shift with toroidal filament
         use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)
@@ -169,7 +183,9 @@ for shot_no in shot_lst:
 
     fig.suptitle(f"result of shot {shot_no}")
 
-    save_path = os.path.join("calibration_plane_result", str(shot_no))
-    plt.tight_layout()
-    plt.savefig(save_path)
-    plt.clf()
+    plt.show()
+
+    # save_path = os.path.join("calibration_plane_result", str(shot_no))
+    # plt.tight_layout()
+    # plt.savefig(save_path)
+    # plt.clf()

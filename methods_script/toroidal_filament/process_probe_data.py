@@ -8,8 +8,12 @@ from scipy.signal import find_peaks
 retreive and process experimental data for toroidal filament model
 """
 
-path_plasma_current = os.getcwd() + r"\resources\magneticSignal\Plasma current for plasma position.xlsx"
-path_magnetic_signal = os.getcwd() + r"\resources\magneticSignal\Magnetic probe GBP_T for plasma position.xlsx"
+path_plasma_current = os.path.join(
+    os.getcwd(), "resources", "magneticSignal", "Plasma current for plasma position.xlsx"
+)
+path_magnetic_signal = os.path.join(
+    os.getcwd(), "resources", "magneticSignal", "Magnetic probe GBP_T for plasma position.xlsx"
+)
 
 def discharge_duration(time, plasma_current,Ip_threshold = 2500) -> tuple:
     """
