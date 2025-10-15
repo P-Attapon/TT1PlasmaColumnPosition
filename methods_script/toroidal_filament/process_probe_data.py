@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
 
+from .parameters import calibration_coeff
+
 
 """
 retreive and process experimental data for toroidal filament model
@@ -116,7 +118,7 @@ def retreive_magnetic_signal(shot_no):
             time = probe_signal["Time (ms)"]
         
         magnetic_signal_df["Time (ms)"] = time
-        
+
     return magnetic_signal_df
 
 def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_df,t1,t2):
@@ -143,3 +145,52 @@ def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_
     #remove noise using signal at t1
     trimmed_magnetic_signal_df = trimmed_magnetic_signal_df - trimmed_magnetic_signal_df.iloc[0]
     return trimmed_time_df.iloc[1:], trimmed_plasma_current_df.iloc[1:], trimmed_magnetic_signal_df.iloc[1:]
+
+################ Signal Calibration ################
+def magnetic_field_calibration(raw_B, kt, It, koh, Ioh, kv, Iv):
+    """
+    correct magnetic noise using calibration factors and machine's current
+    :param raw_B: raw magnetic signal recorded from the magnetic probes
+    :param kt: toroidal correction coefficient
+    :param It: toroidal field current
+    :param koh: ohmic correction coefficient
+    :param Ioh: ohmic heating current
+    :param kv: vertical field correction
+    :param Iv: vertical field current
+    :return: corrected magnetic field
+    """
+    return raw_B - (kt * It + koh * Ioh + kv * Iv)
+
+def calibrate_signal_df(plasma_signal,It,Ioh,Iv):
+    """
+    calibrate raw signal dataframe using magnetic_field_calibration
+    :param plasma_signal: dataframe of raw magnetic signal
+    :raw_time: time steps recorded by It, Ioh, and Iv
+    :discharge_begin: begin time stamp of discharge
+    :discharge_end: end time stamp of discharge
+    :It: array of toroidal current (corresponding to raw_time)
+    :Ioh: array of ohmic current (corresponding to raw_time)
+    :Iv: array of vertical field current (corresponding to raw_time)
+    :return: pandas dataframe of calibrated magnetic signal
+    """
+
+    num_row, num_col = plasma_signal.shape
+    calibrated_signal_np = plasma_signal.to_numpy()
+    plasma_signal_np = plasma_signal.to_numpy()
+    
+    It_np = It.to_numpy()[:,1]
+    Ioh_np = Ioh.to_numpy()[:,1]
+    Iv_np = Iv.to_numpy()[:,1]
+
+    for probe_number in range(1, num_col):
+        kt = calibration_coeff[f"k{probe_number}t"]
+        koh = calibration_coeff[f"k{probe_number}oh"]
+        kv = calibration_coeff[f"k{probe_number}v"]
+
+        calibrated_signal_np[:, probe_number] = magnetic_field_calibration(
+            plasma_signal_np[:, probe_number], kt, It_np, koh, Ioh_np, kv, Iv_np
+        )
+
+    calibrated_signal_df = pd.DataFrame(calibrated_signal_np, columns=plasma_signal.columns)
+
+    return calibrated_signal_df
