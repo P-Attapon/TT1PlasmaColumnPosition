@@ -51,7 +51,6 @@ def discharge_duration(time, plasma_current,Ip_threshold = 2500) -> tuple:
 
     #search from left to determine discharge begin
     for t, Ip in zip(time, plasma_current):
-
         if Ip >= Ip_threshold:
             time_begin = t
             break
@@ -82,10 +81,13 @@ def retreive_plasma_current(shot_no):
         recorded_plasma_current_df = plasma_current_df.loc[:,shot_no]
     
     #if file in directory format (Submitted by Apisit)
-    except FileNotFoundError:
+    except KeyError:
         shot_no = str(shot_no)
         path = os.path.join(path_full_shot_directory,shot_no,"IP1.txt")
-        recorded_plasma_current_df = read_txt(path, ["Time (ms)", "Ip"])
+        df = read_txt(path, ["Time (ms)", "Ip (A)"])
+
+        recorded_time_df = df["Time (ms)"]
+        recorded_plasma_current_df = df["Ip (A)"]
 
     start_discharge, end_discharge = discharge_duration(recorded_time_df, recorded_plasma_current_df)
     return recorded_plasma_current_df, recorded_time_df, start_discharge, end_discharge
@@ -97,6 +99,7 @@ def retreive_magnetic_signal(shot_no):
     :param shot_no: experimental shot number
     :return: data frame of corrected signal (magnetic_signal_df)
     """
+    #if file is stored in Excel format (Submitted by Suebsak)
     try:
         magnetic_signal_df = pd.read_excel(path_magnetic_signal, sheet_name = f"shot_{shot_no}")
 
@@ -104,7 +107,8 @@ def retreive_magnetic_signal(shot_no):
         min_len = magnetic_signal_df.dropna().shape[0]
         magnetic_signal_df = magnetic_signal_df.iloc[:min_len]
 
-    except FileNotFoundError:
+    #if file in directory format (Submitted by Apisit)
+    except ValueError:
         probe_names = [f"GBP{i}T" for i in range(1,13)]
         headers = ["Time (ms)"] + probe_names
 
@@ -143,10 +147,36 @@ def trim_quantities(recorded_time_df,magnetic_signal_df,recorded_plasma_current_
     trimmed_magnetic_signal_df = magnetic_signal_df[(magnetic_signal_df["Time (ms)"] > t1) & (magnetic_signal_df["Time (ms)"] < t2)]
 
     #remove noise using signal at t1
-    trimmed_magnetic_signal_df = trimmed_magnetic_signal_df - trimmed_magnetic_signal_df.iloc[0]
+    # trimmed_magnetic_signal_df = trimmed_magnetic_signal_df - trimmed_magnetic_signal_df.iloc[0]
     return trimmed_time_df.iloc[1:], trimmed_plasma_current_df.iloc[1:], trimmed_magnetic_signal_df.iloc[1:]
 
 ################ Signal Calibration ################
+def noise_value(kt,It,koh,Ioh,kv,Iv):
+    return kt * It + koh * Ioh + kv * Iv
+
+def mk_noise_df(It,Ioh,Iv,num_col = 13):
+    columns = {"Time (ms)":[]}
+    for i in range(1,12):
+        columns[f"GBP{i}T"] = []
+    
+    noise_df = pd.DataFrame(columns)
+    noise_df["Time (ms)"] = It.iloc[:,0]
+
+    It_np = It.to_numpy()[:,1]
+    Ioh_np = Ioh.to_numpy()[:,1]
+    Iv_np = Iv.to_numpy()[:,1]
+
+    for probe_number in range(1, num_col):
+        kt = calibration_coeff[f"k{probe_number}t"]
+        koh = calibration_coeff[f"k{probe_number}oh"]
+        kv = calibration_coeff[f"k{probe_number}v"]
+
+        noise_df.loc[:, f"GBP{probe_number}T"] = noise_value(
+            kt, It_np, koh, Ioh_np, kv, Iv_np
+        )
+
+    return noise_df
+
 def magnetic_field_calibration(raw_B, kt, It, koh, Ioh, kv, Iv):
     """
     correct magnetic noise using calibration factors and machine's current
@@ -159,7 +189,8 @@ def magnetic_field_calibration(raw_B, kt, It, koh, Ioh, kv, Iv):
     :param Iv: vertical field current
     :return: corrected magnetic field
     """
-    return raw_B - (kt * It + koh * Ioh + kv * Iv)
+
+    return raw_B - kt * It - koh * Ioh - kv * Iv
 
 def calibrate_signal_df(plasma_signal,It,Ioh,Iv):
     """
@@ -178,9 +209,9 @@ def calibrate_signal_df(plasma_signal,It,Ioh,Iv):
     calibrated_signal_np = plasma_signal.to_numpy()
     plasma_signal_np = plasma_signal.to_numpy()
     
-    It_np = It.to_numpy()[:,1]
-    Ioh_np = Ioh.to_numpy()[:,1]
-    Iv_np = Iv.to_numpy()[:,1]
+    It_np = It.to_numpy()
+    Ioh_np = Ioh.to_numpy()
+    Iv_np = Iv.to_numpy()
 
     for probe_number in range(1, num_col):
         kt = calibration_coeff[f"k{probe_number}t"]

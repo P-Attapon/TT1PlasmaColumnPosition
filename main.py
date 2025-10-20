@@ -7,9 +7,9 @@ import os
 import cv2
 
 #toroidal filament functions
-from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, magnetic_field_calibration, read_txt,path_full_shot_directory
+from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,path_full_shot_directory,mk_noise_df
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
-from methods_script.toroidal_filament.parameters import all_arrays
+from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff
 
 #OFIT
 from methods_script.OFIT.OFIT import OFIT, process_image, field_edge_detection
@@ -21,12 +21,12 @@ plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
 use_toroidal_filament_model = True
-calibrate_magnetic_signal = False
+calibrate_magnetic_signal = True
 use_OFIT = False
 use_calibration_plane_transformation = False
 
 #defined experimental shot numbers to be used
-shot_lst = [966]
+shot_lst = [1641]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = np.inf #ms
@@ -56,18 +56,18 @@ for shot_no in shot_lst:
 
             toroidal_current = read_txt(os.path.join(shot_directory,"IT1.txt"),["Time (ms)", "It"])
             ohmic_current = read_txt(os.path.join(shot_directory,"IOH1.txt"), ["Time (ms)", "Ioh"])
-            vertical_current = read_txt(os.path.join(shot_directory,"IV1.txt"), ["Time (ms)", "Iv"])
-            
-            magnetic_signal = calibrate_magnetic_signal(magnetic_signal,toroidal_current,ohmic_current,vertical_current)
+            vertical_current = read_txt(os.path.join(shot_directory,"IV2.txt"), ["Time (ms)", "Iv"])
 
-        end_time = min(discharge_begin + time_extension, discharge_end) 
-        #trim the quantities to be within time discharge_begin to end_time
-        time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
+            magnetic_signal = calibrate_signal_df(magnetic_signal,toroidal_current["It"],ohmic_current["Ioh"],vertical_current["Iv"])
 
-        #calculate shift with toroidal filament
-        use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)
-        #result for toroidal filament model
-        valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
+    end_time = min(discharge_begin + time_extension, discharge_end) 
+    #trim the quantities to be within time discharge_begin to end_time
+    time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
+
+    #calculate shift with toroidal filament
+    use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)
+    #result for toroidal filament model
+    valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
 
     ### retreive images for OFIT and calibration plane transformation ###
 
@@ -178,9 +178,9 @@ for shot_no in shot_lst:
 
     fig.suptitle(f"result of shot {shot_no}")
 
-    plt.show()
+    # plt.show()
 
-    # save_path = os.path.join("calibration_plane_result", str(shot_no))
-    # plt.tight_layout()
-    # plt.savefig(save_path)
-    # plt.clf()
+    save_path = os.path.join("result_plot","column_shift", str(shot_no))
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.clf()
