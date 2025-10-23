@@ -20,10 +20,10 @@ from methods_script.OFIT.parameters import TT1_major_radius
 plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
-use_toroidal_filament_model = True
-calibrate_magnetic_signal = True
+use_toroidal_filament_model = False
+calibrate_magnetic_signal = False
 use_OFIT = False
-use_calibration_plane_transformation = False
+use_calibration_plane_transformation = True
 
 #defined experimental shot numbers to be used
 shot_lst = [1641]
@@ -60,14 +60,14 @@ for shot_no in shot_lst:
 
             magnetic_signal = calibrate_signal_df(magnetic_signal,toroidal_current["It"],ohmic_current["Ioh"],vertical_current["Iv"])
 
-    end_time = min(discharge_begin + time_extension, discharge_end) 
-    #trim the quantities to be within time discharge_begin to end_time
-    time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
+        end_time = min(discharge_begin + time_extension, discharge_end) 
+        #trim the quantities to be within time discharge_begin to end_time
+        time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
 
-    #calculate shift with toroidal filament
-    use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)
-    #result for toroidal filament model
-    valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
+        #calculate shift with toroidal filament
+        use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)
+        #result for toroidal filament model
+        valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
 
     ### retreive images for OFIT and calibration plane transformation ###
 
@@ -178,9 +178,9 @@ for shot_no in shot_lst:
 
     fig.suptitle(f"result of shot {shot_no}")
 
-    # plt.show()
+    plt.show()
 
-    save_path = os.path.join("result_plot","column_shift", str(shot_no))
-    plt.tight_layout()
-    plt.savefig(save_path)
-    plt.clf()
+    # save_path = os.path.join("result_plot","column_shift", str(shot_no))
+    # plt.tight_layout()
+    # plt.savefig(save_path)
+    # plt.clf()
