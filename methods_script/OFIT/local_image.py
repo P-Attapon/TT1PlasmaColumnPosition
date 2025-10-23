@@ -17,7 +17,7 @@ def rev_image(shot_no, frame):
     """
 
     #path to image folder
-    im_dir = os.path.join(root_dir , "resources" , "TTI frame" , str(shot_no) , f"{shot_no}_frames_jpg")
+    im_dir = Path(os.path.join(root_dir , "resources" , "TTI frame" , str(shot_no) , f"{shot_no}_frames_jpg"))
 
     # Get all jpg images paths in the folder
     im_paths = glob(str(im_dir /"*.jpg"))
@@ -37,7 +37,7 @@ def get_frames_for_shot(shot_no:int) -> list[int]:
     :param shot_no: experimental shot number
     :return: list of all frame numbers
     """
-    frame_dir = os.path.join(root_dir , "resources" , "TTI frame" , str(shot_no) , f"{shot_no}_frames_jpg")
+    frame_dir = Path(os.path.join(root_dir , "resources" , "TTI frame" , str(shot_no) , f"{shot_no}_frames_jpg"))
     
     if not frame_dir.exists():
         raise FileNotFoundError(f"No such directory: {frame_dir}")

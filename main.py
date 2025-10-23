@@ -1,10 +1,12 @@
 #standard libraries
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
 from tqdm import tqdm
 import pandas as pd
 import os
 import cv2
+from pathlib import Path
 
 #toroidal filament functions
 from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,path_full_shot_directory,mk_noise_df
@@ -38,14 +40,15 @@ frame_to_time = lambda frame: frame/2 + 260
 pixel_to_calibration = lambda q, edge_pixel, pixel_plane_ratio=1/0.9: (q - edge_pixel)*pixel_plane_ratio/1000
 
 for shot_no in shot_lst:
+    try:
+        recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retreive_plasma_current(shot_no)
+        end_time = min(discharge_begin + time_extension, discharge_end) 
+    except ValueError:
+        print(f"discharge time can't be determined for shot {shot_no}")
+        continue
+
     if use_toroidal_filament_model:
         #calculate noise removed signal, time steps, discharge begin time, discharge end time from experimental data
-
-        try:
-            recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retreive_plasma_current(shot_no)
-        except ValueError:
-            print(f"discharge time can't be determined for shot {shot_no}")
-            continue
 
         ### toroidal filament model ###
 
@@ -60,7 +63,6 @@ for shot_no in shot_lst:
 
             magnetic_signal = calibrate_signal_df(magnetic_signal,toroidal_current["It"],ohmic_current["Ioh"],vertical_current["Iv"])
 
-        end_time = min(discharge_begin + time_extension, discharge_end) 
         #trim the quantities to be within time discharge_begin to end_time
         time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
 
@@ -111,25 +113,46 @@ for shot_no in shot_lst:
     if use_calibration_plane_transformation:
         calibration_plane_rows = []
         for frame_no, img in tqdm(enumerate(all_frames_images,start = 1),total=len(all_frames_images), desc="OFIT"):    
+
+            ### perform calculation only within discharge time ###
             calibration_plane_time = frame_to_time(frame_no)
             if calibration_plane_time < discharge_begin:continue
             if calibration_plane_time > end_time: break
+            ###
 
             img_brightness = np.mean(cv2.cvtColor(img,cv2.COLOR_RGB2GRAY))
             if img_brightness < 70 or img_brightness > 130: 
                 continue
 
-            processed_image = process_image(img)
+            # clean image and turn to grayscale
+            processed_image = process_image(img,apply_hsv_mask=False)
 
+            #detect plasma edge
             (x_high,y_high), (x_low,y_low) = field_edge_detection(processed_image)
+
+            ### save image of plasma edge detection ###
+            x_com, y_com = np.append(x_high,x_low), np.append(y_high,y_low)
+            img_detection = img.copy()
+            for x, y in zip(x_com, y_com):
+                img_detection[y-3:y+3,x-3:x+3] = [255,0,0]
+            output_dir = Path(os.path.join("result_plot","edge_detection",str(shot_no)))
+            output_dir.mkdir(parents = True, exist_ok=True)
+            filename = os.path.join(output_dir, str(frame_no) + ".jpg")
+            mpimg.imsave(filename,img_detection)
+            ######
+
+            #transform y = 0 to be at center of image
             y_high, y_low = y_high - 1080//2, y_low - 1080//2
+
+            #convert to calibration_plane
 
             u_high, v_high = pixel_to_calibration(x_high,500), pixel_to_calibration(y_high,0)
             u_low, v_low = pixel_to_calibration(x_low,500), pixel_to_calibration(y_low,0)
 
-            u_com, v_com = np.append(u_high,u_low), np.append(v_high,v_low)
+            # u_com, v_com = np.append(u_high,u_low), np.append(v_high,v_low)
 
-            (x0,y0,radius),*_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low))
+            # (x0,y0,radius),*_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low))
+            (x0,y0,radius),*_ = RANSAC_circle(u_low, v_low)
 
             calibration_plane_rows.append([calibration_plane_time,x0 - TT1_major_radius,y0,radius])
 

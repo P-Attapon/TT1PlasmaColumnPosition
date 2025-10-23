@@ -30,7 +30,7 @@ with open(pkl_path,"rb") as structure_edge:
     port_set = pickle.load(structure_edge)
 
 def process_image(img:np.ndarray,intrinsic_matrix: np.ndarray = TT1_intrinsic_matrix,
-                  distortion_coeff: np.ndarray = TT1_dist_coeffs, kernel:np.ndarray = TT1_image_kernel) -> np.ndarray:
+                  distortion_coeff: np.ndarray = TT1_dist_coeffs, kernel:np.ndarray = TT1_image_kernel,apply_hsv_mask=True) -> np.ndarray:
     """
     process RGB image to undistorted, edge enhanced, masked, image
 
@@ -50,21 +50,25 @@ def process_image(img:np.ndarray,intrinsic_matrix: np.ndarray = TT1_intrinsic_ma
     #enhance edge with kernel
     img_kernel = kernel_filter(img_blur, kernel)
     img_kernel_gs = kernel_filter(img_gs)
-    img_kernel_hsv = cv2.cvtColor(img_kernel,cv2.COLOR_RGB2HSV)
-
-    img_result = np.zeros(shape = (1080,1920)) # create blank image for final result
 
     #apply masks to hsv image
-    hue_mask = (img_kernel_hsv[:, :, 0] > 40) & (img_kernel_hsv[:, :, 0] < 140)
-    sat_mask = (img_kernel_hsv[:, :, 1] > 200)
-    val_mask = (img_kernel_hsv[:, :, 2] > 30)
+    if apply_hsv_mask:
+        img_kernel_hsv = cv2.cvtColor(img_kernel,cv2.COLOR_RGB2HSV)
 
-    combined_mask = hue_mask & sat_mask & val_mask
+        img_result = np.zeros(shape = (1080,1920)) # create blank image for final result
 
-    # indices of hsv images that passes the mask
-    indices = np.where(combined_mask)
+        hue_mask = (img_kernel_hsv[:, :, 0] > 40) & (img_kernel_hsv[:, :, 0] < 140)
+        sat_mask = (img_kernel_hsv[:, :, 1] > 200)
+        val_mask = (img_kernel_hsv[:, :, 2] > 30)
 
-    img_result[indices] = img_kernel_gs[indices]
+        combined_mask = hue_mask & sat_mask & val_mask
+
+        # indices of hsv images that passes the mask
+        indices = np.where(combined_mask)
+
+        img_result[indices] = img_kernel_gs[indices]
+    
+    else: img_result = img_kernel_gs
 
     return img_result
 
