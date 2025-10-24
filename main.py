@@ -22,10 +22,20 @@ from methods_script.OFIT.parameters import TT1_major_radius
 plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
-use_toroidal_filament_model = False
-calibrate_magnetic_signal = False
-use_OFIT = False
-use_calibration_plane_transformation = True
+use_toroidal_filament_model = True
+use_OFIT = True
+use_calibration_plane_transformation = False
+
+calibrate_magnetic_signal = True
+edge_detection_image = False
+
+frame_step = 3 
+
+#save path of final plot
+save_directory = os.path.join("result_plot","OFIT_result")
+
+
+use_probes = [[1,4,7,10],[2,4,8,10]] #specify magnetic probes to be used (all_arrays for all combination)
 
 #defined experimental shot numbers to be used
 shot_lst = [1641]
@@ -43,6 +53,7 @@ for shot_no in shot_lst:
     try:
         recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retreive_plasma_current(shot_no)
         end_time = min(discharge_begin + time_extension, discharge_end) 
+        print(f"Shot number: {shot_no}, peak plasma current: {np.round(np.max(recorded_plasma_current)/1000,2)} kA")
     except ValueError:
         print(f"discharge time can't be determined for shot {shot_no}")
         continue
@@ -67,7 +78,6 @@ for shot_no in shot_lst:
         time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
 
         #calculate shift with toroidal filament
-        use_probes = [[1,2,7,8],[1,3,7,9],[1,4,7,10],[2,3,8,9],[2,4,8,10],[3,4,9,10]] #specify magnetic probes to be used (all_arrays for all combination)
         #result for toroidal filament model
         valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
 
@@ -81,6 +91,8 @@ for shot_no in shot_lst:
     if use_OFIT:
         all_rows = []
         for frame_no, img in tqdm(enumerate(all_frames_images, start=1), total=len(all_frames_images), desc="OFIT"):
+            if frame_no % frame_step != 0: continue
+
             #determine time
             OFIT_time = frame_to_time(frame_no)
 
@@ -113,6 +125,7 @@ for shot_no in shot_lst:
     if use_calibration_plane_transformation:
         calibration_plane_rows = []
         for frame_no, img in tqdm(enumerate(all_frames_images,start = 1),total=len(all_frames_images), desc="OFIT"):    
+            if frame_no % frame_step != 0: continue
 
             ### perform calculation only within discharge time ###
             calibration_plane_time = frame_to_time(frame_no)
@@ -125,20 +138,21 @@ for shot_no in shot_lst:
                 continue
 
             # clean image and turn to grayscale
-            processed_image = process_image(img,apply_hsv_mask=False)
+            processed_image = process_image(img,apply_hsv_mask=True)
 
             #detect plasma edge
             (x_high,y_high), (x_low,y_low) = field_edge_detection(processed_image)
 
             ### save image of plasma edge detection ###
-            x_com, y_com = np.append(x_high,x_low), np.append(y_high,y_low)
-            img_detection = img.copy()
-            for x, y in zip(x_com, y_com):
-                img_detection[y-3:y+3,x-3:x+3] = [255,0,0]
-            output_dir = Path(os.path.join("result_plot","edge_detection",str(shot_no)))
-            output_dir.mkdir(parents = True, exist_ok=True)
-            filename = os.path.join(output_dir, str(frame_no) + ".jpg")
-            mpimg.imsave(filename,img_detection)
+            if edge_detection_image:
+                x_com, y_com = np.append(x_high,x_low), np.append(y_high,y_low)
+                img_detection = img.copy()
+                for x, y in zip(x_com, y_com):
+                    img_detection[y-3:y+3,x-3:x+3] = [255,0,0]
+                output_dir = Path(os.path.join("result_plot","edge_detection",str(shot_no)))
+                output_dir.mkdir(parents = True, exist_ok=True)
+                filename = os.path.join(output_dir, str(frame_no) + ".jpg")
+                mpimg.imsave(filename,img_detection)
             ######
 
             #transform y = 0 to be at center of image
@@ -149,12 +163,9 @@ for shot_no in shot_lst:
             u_high, v_high = pixel_to_calibration(x_high,500), pixel_to_calibration(y_high,0)
             u_low, v_low = pixel_to_calibration(x_low,500), pixel_to_calibration(y_low,0)
 
-            # u_com, v_com = np.append(u_high,u_low), np.append(v_high,v_low)
+            (u0,v0,radius),*_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low))
 
-            # (x0,y0,radius),*_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low))
-            (x0,y0,radius),*_ = RANSAC_circle(u_low, v_low)
-
-            calibration_plane_rows.append([calibration_plane_time,x0 - TT1_major_radius,y0,radius])
+            calibration_plane_rows.append([calibration_plane_time,u0-0.8,v0,radius])
 
         calibration_plane_df = pd.DataFrame(
             calibration_plane_rows,
@@ -163,47 +174,48 @@ for shot_no in shot_lst:
 
     #plotting 
 
-    fig, (axR, axZ) = plt.subplots(1,2,figsize = (8,6))
+    if True in [use_toroidal_filament_model, use_OFIT, use_calibration_plane_transformation]:
 
-    def toroidal_filament_plot(ax,arr,arr_err):
-        for t, shift, err, probe_arr in zip(valid_time, arr, arr_err,use_probes):
-            line = ax.plot(t,shift,label = f"{probe_arr}")
-            color = line[0].get_color()
-            ax.errorbar(t,shift,yerr=err,alpha = 0.1, color = color)
+        fig, (axR, axZ) = plt.subplots(1,2,figsize = (8,6))
 
-    if use_toroidal_filament_model:    
-        toroidal_filament_plot(axR,toroidal_R0_arr,toroidal_R0_err)
-        toroidal_filament_plot(axZ,toroidal_Z0_arr,toroidal_Z0_err)
+        def toroidal_filament_plot(ax,arr,arr_err):
+            for t, shift, err, probe_arr in zip(valid_time, arr, arr_err,use_probes):
+                line = ax.plot(t,shift,label = f"{probe_arr}")
+                color = line[0].get_color()
+                ax.errorbar(t,shift,yerr=err,alpha = 0.1, color = color)
 
-    if use_OFIT:
-        axR.plot(OFIT_time, OFIT_Rshift, color="black", label="OFIT")
-        axR.errorbar(OFIT_time, OFIT_Rshift, yerr=OFIT_Rerr, alpha=0.1, color="black")
-        axZ.plot(OFIT_time, OFIT_Zshift, color="black", label="OFIT")
-        axZ.errorbar(OFIT_time, OFIT_Zshift, yerr=OFIT_Zerr, alpha=0.1, color="black")
-    
-    if use_calibration_plane_transformation:
-        axR.plot(calibration_plane_df["time"], calibration_plane_df["x0"],".--")
-        axZ.plot(calibration_plane_df["time"], calibration_plane_df["y0"],".--", label = "calibration")
+        if use_toroidal_filament_model:    
+            toroidal_filament_plot(axR,toroidal_R0_arr,toroidal_R0_err)
+            toroidal_filament_plot(axZ,toroidal_Z0_arr,toroidal_Z0_err)
 
-    axR.set_ylabel(r"$\Delta_R$ [m]")
-    axR.set_title("plasma horizontal shift")
+        if use_OFIT:
+            axR.plot(OFIT_time, OFIT_Rshift, color="black", label="OFIT")
+            axR.errorbar(OFIT_time, OFIT_Rshift, yerr=OFIT_Rerr, alpha=0.1, color="black")
+            axZ.plot(OFIT_time, OFIT_Zshift, color="black", label="OFIT")
+            axZ.errorbar(OFIT_time, OFIT_Zshift, yerr=OFIT_Zerr, alpha=0.1, color="black")
+        
+        if use_calibration_plane_transformation:
+            axR.plot(calibration_plane_df["time"], calibration_plane_df["x0"],".--")
+            axZ.plot(calibration_plane_df["time"], calibration_plane_df["y0"],".--", label = "calibration")
 
-    axZ.set_ylabel(r"$\Delta_Z$ [m]")
-    axZ.set_title("plasma vertical shift")
+        axR.set_ylabel(r"$\Delta_R$ [m]")
+        axR.set_title("centroid horizontal displacement")
 
-    axZ.legend(ncol=2, title = "Magnetic probe numbers")
+        axZ.set_ylabel(r"$\Delta_Z$ [m]")
+        axZ.set_title("centroid vertical displacement")
 
-    for ax in (axR,axZ):
-        ax.set_xlim(discharge_begin, end_time)
-        ax.set_ylim(-0.3,0.3)
-        ax.grid()
-        ax.set_xlabel("time [ms]")
+        axZ.legend(ncol=2, title = "Magnetic probe numbers")
 
-    fig.suptitle(f"result of shot {shot_no}")
+        for ax in (axR,axZ):
+            ax.set_xlim(discharge_begin, end_time)
+            ax.set_ylim(-0.3,0.3)
+            ax.grid()
+            ax.set_xlabel("time [ms]")
 
-    plt.show()
+        fig.suptitle(f"result of shot {shot_no}")
 
-    # save_path = os.path.join("result_plot","column_shift", str(shot_no))
-    # plt.tight_layout()
-    # plt.savefig(save_path)
-    # plt.clf()
+        save_path = os.path.join(save_directory, str(shot_no))
+
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.clf()
