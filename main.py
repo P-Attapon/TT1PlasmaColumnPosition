@@ -11,7 +11,7 @@ from pathlib import Path
 #toroidal filament functions
 from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,path_full_shot_directory,mk_noise_df
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
-from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff, R0
+from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff, R0, probe_lst_to_str
 
 #OFIT
 from methods_script.OFIT.OFIT import OFIT, process_image, field_edge_detection
@@ -24,7 +24,7 @@ plt.style.use("seaborn-v0_8-dark-palette")
 #define what methods to use
 use_toroidal_filament_model = True
 use_OFIT = False
-use_calibration_plane_transformation = True
+use_calibration_plane_transformation = False
 
 calibrate_magnetic_signal = True
 edge_detection_image = False
@@ -36,6 +36,12 @@ save_directory = os.path.join("result_plot","OFIT_result")
 
 
 use_probes = [[1,4,7,10],[2,4,8,10]] #specify magnetic probes to be used (all_arrays for all combination)
+
+#dictionary of erro bars calculated from simulation_toroidal_filament.py
+error_dict = {
+    probe_lst_to_str([1,4,7,10]) + "R": 2e-03, probe_lst_to_str([2,4,8,10]) + "R": 10e-3,
+    probe_lst_to_str([1,4,7,10]) + "Z": 2e-03, probe_lst_to_str([2,4,8,10]) + "Z": 2e-3,
+}
 
 #defined experimental shot numbers to be used
 shot_lst = [1641]
@@ -173,20 +179,43 @@ for shot_no in shot_lst:
         )
 
     #plotting 
+    def toroidal_filament_plot(ax, arr, direction, step=100):
+        """
+        ax        : matplotlib axis
+        arr       : list/array of calculated values per probe
+        direction : string to select error from error_dict
+        step      : plot error bars every 'step' points
+        """
+        for t, shift, probe_arr in zip(valid_time, arr, use_probes):
+            # Plot main line
+            line = ax.plot(t, shift, label=f"{probe_arr}")
+            color = line[0].get_color()
+
+            # Select points for error bars
+            t_err = t[::step]
+            shift_err = shift[::step]
+
+            # Get the scalar error from the dict
+            err_value = error_dict[probe_lst_to_str(probe_arr) + direction]
+
+            # Plot error bars only at selected points
+            ax.errorbar(
+                t_err,
+                shift_err,
+                yerr=err_value,   # scalar is fine
+                alpha=0.7,
+                color=color,
+                fmt='none',
+                capsize=3
+            )
 
     if True in [use_toroidal_filament_model, use_OFIT, use_calibration_plane_transformation]:
 
         fig, (axR, axZ) = plt.subplots(1,2,figsize = (8,6))
 
-        def toroidal_filament_plot(ax,arr,arr_err):
-            for t, shift, err, probe_arr in zip(valid_time, arr, arr_err,use_probes):
-                line = ax.plot(t,shift,label = f"{probe_arr}")
-                color = line[0].get_color()
-                ax.errorbar(t,shift,yerr=err,alpha = 0.1, color = color)
-
         if use_toroidal_filament_model:    
-            toroidal_filament_plot(axR,toroidal_R0_arr,toroidal_R0_err)
-            toroidal_filament_plot(axZ,toroidal_Z0_arr,toroidal_Z0_err)
+            toroidal_filament_plot(axR,toroidal_R0_arr,"R")
+            toroidal_filament_plot(axZ,toroidal_Z0_arr,"Z")
 
         if use_OFIT:
             axR.plot(OFIT_time, OFIT_Rshift, color="black", label="OFIT")
