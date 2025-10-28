@@ -11,7 +11,7 @@ from pathlib import Path
 #toroidal filament functions
 from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,path_full_shot_directory,mk_noise_df
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
-from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff
+from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff, R0
 
 #OFIT
 from methods_script.OFIT.OFIT import OFIT, process_image, field_edge_detection
@@ -23,13 +23,13 @@ plt.style.use("seaborn-v0_8-dark-palette")
 
 #define what methods to use
 use_toroidal_filament_model = True
-use_OFIT = True
-use_calibration_plane_transformation = False
+use_OFIT = False
+use_calibration_plane_transformation = True
 
 calibrate_magnetic_signal = True
 edge_detection_image = False
 
-frame_step = 3 
+frame_step = 5
 
 #save path of final plot
 save_directory = os.path.join("result_plot","OFIT_result")
@@ -47,7 +47,7 @@ time_extension = np.inf #ms
 frame_to_time = lambda frame: frame/2 + 260
 
 #function to transform pixel to calibration plane
-pixel_to_calibration = lambda q, edge_pixel, pixel_plane_ratio=1/0.9: (q - edge_pixel)*pixel_plane_ratio/1000
+pixel_to_calibration = lambda q,edge_pixel, pixel_plane_ratio=0.9: (q - edge_pixel)*pixel_plane_ratio/1000
 
 for shot_no in shot_lst:
     try:
@@ -124,7 +124,7 @@ for shot_no in shot_lst:
 
     if use_calibration_plane_transformation:
         calibration_plane_rows = []
-        for frame_no, img in tqdm(enumerate(all_frames_images,start = 1),total=len(all_frames_images), desc="OFIT"):    
+        for frame_no, img in tqdm(enumerate(all_frames_images,start = 1),total=len(all_frames_images), desc="calibration plane"):    
             if frame_no % frame_step != 0: continue
 
             ### perform calculation only within discharge time ###
@@ -165,7 +165,7 @@ for shot_no in shot_lst:
 
             (u0,v0,radius),*_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low))
 
-            calibration_plane_rows.append([calibration_plane_time,u0-0.8,v0,radius])
+            calibration_plane_rows.append([calibration_plane_time,u0 - R0,v0,radius])
 
         calibration_plane_df = pd.DataFrame(
             calibration_plane_rows,
@@ -217,5 +217,6 @@ for shot_no in shot_lst:
         save_path = os.path.join(save_directory, str(shot_no))
 
         plt.tight_layout()
-        plt.savefig(save_path)
-        plt.clf()
+        plt.show()
+        # plt.savefig(save_path)
+        # plt.clf()
