@@ -24,7 +24,7 @@ plt.style.use("seaborn-v0_8-dark-palette")
 #define what methods to use
 use_toroidal_filament_model = True
 use_OFIT = False
-use_calibration_plane_transformation = False
+use_calibration_plane_transformation = True
 
 calibrate_magnetic_signal = True
 edge_detection_image = False
@@ -169,13 +169,30 @@ for shot_no in shot_lst:
             u_high, v_high = pixel_to_calibration(x_high,500), pixel_to_calibration(y_high,0)
             u_low, v_low = pixel_to_calibration(x_low,500), pixel_to_calibration(y_low,0)
 
-            (u0,v0,radius),*_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low))
+            (u0,v0,radius), circle_var, *_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low),epsilon = 0.001)
 
-            calibration_plane_rows.append([calibration_plane_time,u0 - R0,v0,radius])
+            #error bars
+            all_u = np.append(u_high, u_low)
+            all_v = np.append(v_high, v_low)
+            residuals = np.sqrt((all_u - u0)**2 + (all_v - v0)**2) - radius
+
+            # Degrees of freedom = number of points - number of parameters
+            dof = len(residuals) - 3  # 3 parameters: u0, v0, radius
+
+            # Reduced chi-square
+            s_sq = np.sum(residuals**2) / dof
+
+            # Scale covariance
+            cov_scaled = circle_var * s_sq
+
+            # 1-sigma uncertainties
+            sigma_u0, sigma_v0, sigma_radius = np.sqrt(np.diag(cov_scaled))
+
+            calibration_plane_rows.append([calibration_plane_time,u0 - R0,sigma_u0,v0,sigma_v0,radius,sigma_radius])
 
         calibration_plane_df = pd.DataFrame(
             calibration_plane_rows,
-            columns=["time","x0","y0","r"]
+            columns=["time","x0","x0 err","y0", "y0 err","r", "r err"]
         )
 
     #plotting 
@@ -224,8 +241,8 @@ for shot_no in shot_lst:
             axZ.errorbar(OFIT_time, OFIT_Zshift, yerr=OFIT_Zerr, alpha=0.1, color="black")
         
         if use_calibration_plane_transformation:
-            axR.plot(calibration_plane_df["time"], calibration_plane_df["x0"],".--")
-            axZ.plot(calibration_plane_df["time"], calibration_plane_df["y0"],".--", label = "calibration")
+            axR.errorbar(calibration_plane_df["time"], calibration_plane_df["x0"],yerr = calibration_plane_df["x0 err"],fmt = ".--",color = "black")
+            axZ.errorbar(calibration_plane_df["time"], calibration_plane_df["y0"],yerr = calibration_plane_df["y0 err"],fmt = ".--",color = "black", label = "calibration")
 
         axR.set_ylabel(r"$\Delta_R$ [m]")
         axR.set_title("centroid horizontal displacement")
