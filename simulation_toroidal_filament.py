@@ -7,101 +7,118 @@ import pandas as pd
 from methods_script.toroidal_filament.DxDz import cal_newton_DxDz as cal_DxDz
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
 from methods_script.toroidal_filament.signal_strength import coil_signal
-from methods_script.toroidal_filament.parameters import coil_angle_dict, R0, R, all_arrays
+from methods_script.toroidal_filament.parameters import coil_angle_dict, R0, R, all_arrays, probe_lst_to_str
 ### simulate magnetic probe signal
-
 plt.rcParams.update({
     "font.size":15
 })
 plt.style.use("seaborn-v0_8-dark-palette")
 
 np.random.seed(0)
+    
+def simulate_signal_df(dR_all, dZ_all):
+    """
+    Simulate signal at each magnetic probe given plasma displacement
 
-def simulate_signal(num_iteration = 1_000):
-    R_sim, Z_sim = [], []
-    all_probe_signal = [[] for _ in range(13)]
+    :param dR_all: array of plasma displcaement along R direction
+    :param dZ_all: array of plasma displcaement along Z direction
+    :return: simulated magnetic signal at all probes in TT1 corresponding to given displacement 
+    """
 
-    for _ in range(num_iteration):
-        R_est = R_sim[-1] if len(R_sim) > 0 else 0
-        Z_est = Z_sim[-1] if len(Z_sim) > 0 else 0
-        if abs(R_est) <= 0.15:
-            R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
-            Z_shift = Z_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
+    def simulate_signal_at_probe(probe_num, dR, dZ):
+        """Helper function to calculate magnetic signal at 
+        specific probe given plasma displacement"""
 
-        else:
-            R_shift = R_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
-            Z_shift = Z_est + np.random.choice([-0.001, 0.001], p = [0.5,0.5])
-        
-        #append shift value
-        R_sim.append(R_shift)
-        Z_sim.append(Z_shift)
+        phi = coil_angle_dict[probe_num] #defined polar angle of probe on poloidal plane
 
-        all_probe_signal[0].append(0)
+        ## location of probe on poloidal plane with center plasma loop's center ##
+        r_probe = R0 + R * np.cos(phi) 
+        z_probe = R * np.sin(phi) - dZ
+        ##############################
 
-        for probe_num, probe_signal in enumerate(all_probe_signal[1:], start = 1):
-            phi = coil_angle_dict[probe_num]
-            r_probe = R0 + R * np.cos(phi)
-            z_probe = R * np.sin(phi) - Z_shift
-            a_f = R0 + R_shift
-            signal_i = coil_signal(phi,r_probe,z_probe,a_f) #signal of probe at this specific iteration
-            probe_signal.append(signal_i)
+        a_f = R0 + dR # plasma filament's radius
 
-    return list(range(num_iteration)),R_sim, Z_sim, all_probe_signal
+        return coil_signal(phi,r_probe,z_probe,a_f)
+    
+    #create dataframe to assign values
+    signal_df = pd.DataFrame(np.nan, index = range(0,len(dR_all)),columns=["Time step"] + [f"GBP{i}T" for i in range(1,13)])
 
-iteration, R_sim, Z_sim, probe_signal = simulate_signal()
+    #calculate magnetic signasl for each probe at each given displacement
+    for i, (dR_i, dZ_i) in enumerate(zip(dR_all, dZ_all)):
+        signal_i = [i] + [simulate_signal_at_probe(num,dR_i,dZ_i) for num in range(1,13)]
 
-signal_df = pd.DataFrame(np.array(probe_signal).T)
-iteration_df = pd.Series(np.array(iteration).T)
+        #assign values into signal_df
+        signal_df.iloc[i] = signal_i
 
-# ### calculate plasma shift
-use_probes = [[1,4,7,10]]
-valid_iteration, R_arr, R_err, Z_arr, Z_err =  toroidal_filament_shift_progression(iteration_df,signal_df,use_probes)
+    return signal_df
 
-all_Dx = [[] for _ in range(len(use_probes))]
-all_Dz = [[] for _ in range(len(use_probes))]
+def add_absolute_err(df:pd.DataFrame):
+    for col in df.columns:
+        if col == "defined": continue
+        df[f"{col} abs error"] = np.abs(df[col] - df["defined"])
+    return
 
+if __name__ == "__main__":
+    #define simulation parameters
 
-for signal in signal_df.to_numpy():
-    for i,probe_num in enumerate(use_probes):
-        Dx, Dz = cal_DxDz([signal[j] for j in probe_num],[coil_angle_dict[j] for j in probe_num])
-        all_Dx[i].append(Dx)
-        all_Dz[i].append(Dz)
+    R_amp, Z_amp = 0.1, 0.05    #Amplitudes of R and Z oscillation
+    iteration_array = pd.Series(np.arange(0,10_001,1)) # iteration steps
+    #define displacement of dR and dZ at all iterations
+    dR_all, dZ_all = pd.Series(R_amp * np.sin(iteration_array),name = "defined"), pd.Series(Z_amp * np.cos(iteration_array), name = "defined")
 
-fig, ax = plt.subplots(2,2,figsize = (10,5))
+    use_probes = [[1,4,7,10], [2,4,8,10]] # set of magnetic probes to use in toroidal filament model
 
-for Dx_arr, probes in zip(all_Dx,use_probes):
-    ax[0,0].plot(iteration,Dx_arr)
-ax[0,0].set_xlabel("iteration [1]")
-ax[0,0].set_ylabel("Dx [m]")
-ax[0,0].grid()
+    #simulate magnetic field table
+    signal_df = simulate_signal_df(dR_all, dZ_all)
 
-for Dz_arr, probes in zip(all_Dz,use_probes):
-    ax[0,1].plot(iteration,Dz_arr)
-ax[0,1].set_xlabel("iteration [1]")
-ax[0,1].set_ylabel("Dz [m]")
-ax[0,1].grid()
+    ### calculate plasma shift
+    valid_iteration, R_arr, R_err, Z_arr, Z_err =  toroidal_filament_shift_progression(iteration_array,signal_df,use_probes)
 
-ax[1,0].plot(iteration, R_sim, label = "R sim")
-for iter, R,Re, probes in zip(valid_iteration, R_arr,R_err,use_probes):
-    line, = ax[1,0].plot(iter,R,label = f"{probes}")
-    ax[1,0].errorbar(iter,R,yerr = Re,color = line.get_color())
-ax[1,0].set_xlabel("iteration [1]")
-ax[1,0].set_ylabel("R shift [m]")
-ax[1,0].grid()
+    #convert calculation result of each probe into data frame
+    dR_df = pd.DataFrame(data = np.array(R_arr).transpose(), columns = [probe_lst_to_str(probe_set) for probe_set in use_probes])
+    dZ_df = pd.DataFrame(data = np.array(Z_arr).transpose(), columns = [probe_lst_to_str(probe_set) for probe_set in use_probes])
 
-ax[1,1].plot(iteration, Z_sim)
-for iter, Z,Ze, probes in zip(valid_iteration, Z_arr,Z_err, use_probes):
-    line, = ax[1,1].plot(iter,Z)
-    ax[1,1].errorbar(iter,Z,yerr=Ze, color = line.get_color())
-ax[1,1].set_xlabel("iteration [1]")
-ax[1,1].set_ylabel("Z shift [m]")
-ax[1,1].grid()
+    #adjust index of dataframe 
+    # Due to predefined shift_value at (0,0) in plasma_shift.py the row indices of defined and calculated are mismatched
 
-num_row, num_col = ax.shape
-for i in range(num_row):
-    for j in range(num_col):
-        ax[i,j].set_ylim(-0.2,0.2)
+    def adjust_index(df:pd.DataFrame):
+        for col in df.columns:
+            df[col] = df[col].iloc[1:].reset_index(drop=True)
+        return
+    adjust_index(dR_df)
+    adjust_index(dZ_df)
 
-ax[0,0].set_ylim(-0.3,0.3)
+    #add defined value of displacement
+    dR_df = pd.concat([dR_df, dR_all], axis = 1)
+    dZ_df = pd.concat([dZ_df, dZ_all], axis = 1)
 
-plt.show()
+    add_absolute_err(dR_df)
+    add_absolute_err(dZ_df)
+
+    print("Radial displacement simulated statistical summary: \n",dR_df.describe())
+    print("Vertical displacement simulated statistical summary: \n", dZ_df.describe())
+    
+    fig, ax = plt.subplots(1,2,figsize = (10,5))
+
+    ax[0].plot(iteration_array, dR_all, label = "R sim", lw = 5, alpha = 0.5)
+    for iter, R,Re, probes in zip(valid_iteration, R_arr,R_err,use_probes):
+        line, = ax[0].plot(iter,R,label = f"{probes}")
+        ax[0].errorbar(iter,R,yerr = Re,color = line.get_color())
+    ax[0].set_xlabel("iteration [1]")
+    ax[0].set_ylabel("R shift [m]")
+    ax[0].grid()
+
+    ax[1].plot(iteration_array, dZ_all, lw = 5, alpha = 0.5)
+    for iter, Z,Ze, probes in zip(valid_iteration, Z_arr,Z_err, use_probes):
+        line, = ax[1].plot(iter,Z)
+        ax[1].errorbar(iter,Z,yerr=Ze, color = line.get_color())
+    ax[1].set_xlabel("iteration [1]")
+    ax[1].set_ylabel("Z shift [m]")
+    ax[1].grid()
+
+    for a in ax:
+        a.set_ylim(-0.3,0.3)
+        a.legend()
+        a.set_xlim(0,100)
+
+    plt.show()
