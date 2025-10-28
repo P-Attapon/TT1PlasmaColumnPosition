@@ -44,7 +44,7 @@ error_dict = {
 }
 
 #defined experimental shot numbers to be used
-shot_lst = [1641]
+shot_lst = [1643]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = np.inf #ms
@@ -242,7 +242,7 @@ for shot_no in shot_lst:
         
         if use_calibration_plane_transformation:
             axR.errorbar(calibration_plane_df["time"], calibration_plane_df["x0"],yerr = calibration_plane_df["x0 err"],fmt = ".--",color = "black")
-            axZ.errorbar(calibration_plane_df["time"], calibration_plane_df["y0"],yerr = calibration_plane_df["y0 err"],fmt = ".--",color = "black", label = "calibration")
+            axZ.errorbar(calibration_plane_df["time"], calibration_plane_df["y0"],yerr = calibration_plane_df["y0 err"],fmt = ".--",color = "black", label = "calibration plane")
 
         axR.set_ylabel(r"$\Delta_R$ [m]")
         axR.set_title("centroid horizontal displacement")
@@ -263,6 +263,5 @@ for shot_no in shot_lst:
         save_path = os.path.join(save_directory, str(shot_no))
 
         plt.tight_layout()
-        plt.show()
-        # plt.savefig(save_path)
-        # plt.clf()
+        plt.savefig(save_path)
+        plt.clf()
