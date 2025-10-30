@@ -15,7 +15,6 @@ plt.rcParams.update({
 plt.style.use("seaborn-v0_8-dark-palette")
 
 np.random.seed(0)
-    
 def simulate_signal_df(dR_all, dZ_all):
     """
     Simulate signal at each magnetic probe given plasma displacement
@@ -66,7 +65,7 @@ if __name__ == "__main__":
     #define displacement of dR and dZ at all iterations
     dR_all, dZ_all = pd.Series(R_amp * np.sin(iteration_array),name = "defined"), pd.Series(Z_amp * np.cos(iteration_array), name = "defined")
 
-    use_probes = [[1,4,7,10], [2,4,8,10]] # set of magnetic probes to use in toroidal filament model
+    use_probes = all_arrays # set of magnetic probes to use in toroidal filament model
 
     #simulate magnetic field table
     signal_df = simulate_signal_df(dR_all, dZ_all)
@@ -78,7 +77,7 @@ if __name__ == "__main__":
     dR_df = pd.DataFrame(data = np.array(R_arr).transpose(), columns = [probe_lst_to_str(probe_set) for probe_set in use_probes])
     dZ_df = pd.DataFrame(data = np.array(Z_arr).transpose(), columns = [probe_lst_to_str(probe_set) for probe_set in use_probes])
 
-    #adjust index of dataframe 
+    #adjust index of dataframe
     # Due to predefined shift_value at (0,0) in plasma_shift.py the row indices of defined and calculated are mismatched
 
     def adjust_index(df:pd.DataFrame):
@@ -95,9 +94,9 @@ if __name__ == "__main__":
     add_absolute_err(dR_df)
     add_absolute_err(dZ_df)
 
-    print("Radial displacement simulated statistical summary: \n",dR_df.describe())
-    print("Vertical displacement simulated statistical summary: \n", dZ_df.describe())
-    
+    dR_df.filter(like = "error",axis = 1).describe().to_string("radialError.txt")
+    dZ_df.filter(like = "error",axis = 1).describe().to_string("verticalError.txt")
+
     fig, ax = plt.subplots(1,2,figsize = (10,5))
 
     ax[0].plot(iteration_array, dR_all, label = "R sim", lw = 5, alpha = 0.5)
@@ -105,7 +104,7 @@ if __name__ == "__main__":
         line, = ax[0].plot(iter,R,label = f"{probes}")
         ax[0].errorbar(iter,R,yerr = Re,color = line.get_color())
     ax[0].set_xlabel("iteration [1]")
-    ax[0].set_ylabel("R shift [m]")
+    ax[0].set_ylabel(r"$\Delta_Z$ [m]")
     ax[0].grid()
 
     ax[1].plot(iteration_array, dZ_all, lw = 5, alpha = 0.5)
@@ -113,12 +112,11 @@ if __name__ == "__main__":
         line, = ax[1].plot(iter,Z)
         ax[1].errorbar(iter,Z,yerr=Ze, color = line.get_color())
     ax[1].set_xlabel("iteration [1]")
-    ax[1].set_ylabel("Z shift [m]")
+    ax[1].set_ylabel(r"$\Delta_Z$ [m]")
     ax[1].grid()
 
     for a in ax:
         a.set_ylim(-0.3,0.3)
-        a.legend()
         a.set_xlim(0,100)
 
     plt.show()
