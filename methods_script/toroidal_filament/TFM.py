@@ -5,14 +5,14 @@ from contextlib import ExitStack
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 
-from methods_script.toroidal_filament.parameters import all_arrays, shift_domain
-from methods_script.toroidal_filament.plasma_shift import cal_shift
-from methods_script.toroidal_filament.DxDz import cal_newton_DxDz as cal_dXdZ
-from methods_script.toroidal_filament.process_probe_data import magnetic_field_calibration, calibration_coeff
+from .parameters import all_arrays, shift_domain
+from .plasma_shift import cal_shift
+from .DxDz import cal_newton_DxDz as cal_dXdZ
+from .process_probe_data import magnetic_field_calibration, calibration_coeff
 
 taylor_order = 3 #order of taylor series fitting => must match with fitting coefficient file!
 
-def determine_unique_probes(probe_set:list[str]) -> list[str]:
+def determine_unique_probes(probe_set:list[str]) -> np.ndarray[str]:
     """determine all unique probe numbers in probe_set"""
     unique_probes = np.unique(" ".join(probe_set).split(" "))
     return unique_probes
@@ -57,7 +57,7 @@ def correct_magnetic_signal(signal_dict: dict) -> dict:
     corrected_signal["IP1"] = signal_dict["IP1"]
     return corrected_signal
 
-def restrict_displacement(displacement_val, shift_domain):
+def restrict_displacement(displacement_val:float, shift_domain:float) -> float:
     if abs(displacement_val) > shift_domain:
         if displacement_val < -shift_domain: displacement_val = -shift_domain
         elif displacement_val > shift_domain: displacement_val = shift_domain
@@ -164,6 +164,7 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
                 dR_prev = restrict_displacement(dR_prev, shift_domain)
                 dZ_prev = restrict_displacement(dZ_prev, shift_domain)
 
+                #calculate dR and dZ
                 ((dR, _),(dZ, _)) = cal_shift(DxDz_method=cal_dXdZ, taylor_order=taylor_order,
                                               signal=signal,est_horizontal_shift=dR_prev,
                                               est_vertical_shift=dZ_prev,probe_number=probe_set
