@@ -2,9 +2,34 @@
 
 This repository contains the python implemented code for calculation of Toroidal Filament Model and Optical Boundary Reconstruction (OFIT) in Thailand Tokamak-1 with the aim to calculate plasma column position within the tokamak and provide foundation for future real-time negative-feedback control. The details of theoretical background and implication are shown in "ANALYSIS OF PLASMA POSITION IN THAILAND TOKAMAK-1 USING TOROIDAL FILAMENT MODEL.pdf" to be signed and publised in MUIC library database. 
 
+# Usage
+
+## data preparation
+Before applying the models to calculate the plasma position in TT-1, the data must be prepared in advanced
+
+A directory named `data/shot_number` must exist where "shot_number" is always replaced by the actual experimental shot number.
+
+In this directory the following files must exist:
+    1) "IP1.txt"
+    2) "IT1.txt"
+    3) "IOH1.txt" 
+    4) "IV2.txt"
+    5) "GBPXT.txt" #Here "X" denote number 1 - 12
+    6) shot_number.avi
+
+if a subdirectory called `imgs` does not exist, all frames from the .avi video will be extracted into this newly created folder.
+
+## model execution
+`main.py` is to be executed to run the models.
+
+Inside `main.py`, a section denoted with "Parameter setup" can be found. Parameters of the calculation may be edited within this region
+
+`shot_lst` specifies number of all shots to run calculation on !the `data/shot_number` directory must exist before hand!
+
+# Directory Structure
 The structure of this directory is as followed:
 
-"main.py" is the main script which executes the toroidal filament model, OFIT, and calibration plane transformation from experimental data. In this file, it is possible to specify which models are to be used and plotted. 
+"main.py" is the main script which executes the toroidal filament model calibration plane transformation from experimental data. In this file, it is possible to specify which models are to be used and plotted. 
 
 "resources" directory contains every experimental data required by main.py to function.
 

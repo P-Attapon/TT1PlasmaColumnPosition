@@ -22,14 +22,14 @@ from methods_script.OFIT.extract_frames import extract_frames_from_video
 
 plt.style.use("seaborn-v0_8-dark-palette")
 
-### Parameter setup ###
+##################### Parameter setup ############################################
 shot_lst = [1641,1643]
 
 #define what methods to use
-use_toroidal_filament_model = True
-use_calibration_plane_transformation = True
+use_toroidal_filament_model = True              #if false the model will be skipped
+use_calibration_plane_transformation = True     #if false the model will be skipped
 
-#If true will save edge detection of each frame in result_plot/edge_detection
+#If true, then save edge detection image of each frame in result_plot/edge_detection/shot_number
 edge_detection_image = False
 
 #frames interval to skip in calibration plane (frame_step = 1) to use all frames
@@ -38,8 +38,10 @@ frame_step = 3
 #save path of final plot
 save_directory = os.path.join("result_plot","calculation_result")
 
-#specify magnetic probes to be used (all_arrays for all combination)
-use_probes = all_arrays
+#specify magnetic probes GBPXT to be used 
+#print(all_arrays) #to see all possible combinations 
+#use_probes = all_arrays # to use every existing probe combination
+use_probes = [[1,4,7,10], [2,4,8,10]]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = np.inf #ms
