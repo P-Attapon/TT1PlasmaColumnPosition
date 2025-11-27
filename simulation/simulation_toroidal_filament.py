@@ -1,8 +1,10 @@
 from matplotlib import pyplot as plt
-from matplotlib.ticker import ScalarFormatter
-
+import sys
+import os
 import numpy as np
 import pandas as pd
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from methods_script.toroidal_filament.DxDz import cal_newton_DxDz as cal_DxDz
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
@@ -93,9 +95,11 @@ if __name__ == "__main__":
 
     add_absolute_err(dR_df)
     add_absolute_err(dZ_df)
+    error_txt_path = os.path.join("simulation","TFM_error")
+    dR_df.filter(like = "error",axis = 1).describe().to_string(os.path.join(error_txt_path,"radialError.txt"))
+    dZ_df.filter(like = "error",axis = 1).describe().to_string(os.path.join(error_txt_path, "verticalError.txt"))
 
-    dR_df.filter(like = "error",axis = 1).describe().to_string("radialError.txt")
-    dZ_df.filter(like = "error",axis = 1).describe().to_string("verticalError.txt")
+    print(f"Simulation statistic saved to {error_txt_path}")
 
     fig, ax = plt.subplots(1,2,figsize = (10,5))
 
@@ -119,4 +123,9 @@ if __name__ == "__main__":
         a.set_ylim(-0.3,0.3)
         a.set_xlim(0,100)
 
-    plt.show()
+    fig.suptitle(f"Data size = {len(iteration_array)}")
+
+    save_path = os.path.join("result_plot","shift_simulation","TFM_simulation_error")
+
+    plt.savefig(save_path)
+    print(f"Simulation image saved to {save_path}")
