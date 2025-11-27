@@ -9,7 +9,7 @@ import cv2
 from pathlib import Path
 
 #toroidal filament functions
-from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,path_full_shot_directory,mk_noise_df
+from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,mk_noise_df
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
 from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff, R0, probe_lst_to_str
 
@@ -18,22 +18,25 @@ from methods_script.OFIT.OFIT import OFIT, process_image, field_edge_detection
 from methods_script.OFIT.transformation import RANSAC_circle
 from methods_script.OFIT.local_image import rev_image, get_frames_for_shot
 from methods_script.OFIT.parameters import TT1_major_radius
+from methods_script.OFIT.extract_frames import extract_frames_from_video
 
 plt.style.use("seaborn-v0_8-dark-palette")
 
+### Parameter setup ###
+shot_lst = [1641,1643]
+
 #define what methods to use
+
 use_toroidal_filament_model = True
 use_OFIT = False
 use_calibration_plane_transformation = True
 
-calibrate_magnetic_signal = True
 edge_detection_image = False
 
-frame_step = 5
+frame_step = 3
 
 #save path of final plot
-save_directory = os.path.join("result_plot","OFIT_result")
-
+save_directory = os.path.join("result_plot","calculation_result")
 
 use_probes = [[1,4,7,10],[2,4,8,10]] #specify magnetic probes to be used (all_arrays for all combination)
 
@@ -43,12 +46,10 @@ error_dict = {
     probe_lst_to_str([1,4,7,10]) + "Z": 2e-03, probe_lst_to_str([2,4,8,10]) + "Z": 2e-3,
 }
 
-#defined experimental shot numbers to be used
-shot_lst = [1643]
-
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = np.inf #ms
 
+#########################################################################################################
 #function to convert frame number to time with given formula
 frame_to_time = lambda frame: frame/2 + 260
 
@@ -56,6 +57,7 @@ frame_to_time = lambda frame: frame/2 + 260
 pixel_to_calibration = lambda q,edge_pixel, pixel_plane_ratio=0.9: (q - edge_pixel)*pixel_plane_ratio/1000
 
 for shot_no in shot_lst:
+    data_directory = os.path.join("data", str(shot_no))
     try:
         recorded_plasma_current, recorded_time, discharge_begin, discharge_end = retreive_plasma_current(shot_no)
         end_time = min(discharge_begin + time_extension, discharge_end) 
@@ -71,14 +73,11 @@ for shot_no in shot_lst:
 
         magnetic_signal = retreive_magnetic_signal(shot_no)
 
-        if calibrate_magnetic_signal:
-            shot_directory = os.path.join(path_full_shot_directory,str(shot_no))
+        toroidal_current = read_txt(os.path.join(data_directory,"IT1.txt"),["Time (ms)", "It"])
+        ohmic_current = read_txt(os.path.join(data_directory,"IOH1.txt"), ["Time (ms)", "Ioh"])
+        vertical_current = read_txt(os.path.join(data_directory,"IV2.txt"), ["Time (ms)", "Iv"])
 
-            toroidal_current = read_txt(os.path.join(shot_directory,"IT1.txt"),["Time (ms)", "It"])
-            ohmic_current = read_txt(os.path.join(shot_directory,"IOH1.txt"), ["Time (ms)", "Ioh"])
-            vertical_current = read_txt(os.path.join(shot_directory,"IV2.txt"), ["Time (ms)", "Iv"])
-
-            magnetic_signal = calibrate_signal_df(magnetic_signal,toroidal_current["It"],ohmic_current["Ioh"],vertical_current["Iv"])
+        magnetic_signal = calibrate_signal_df(magnetic_signal,toroidal_current["It"],ohmic_current["Ioh"],vertical_current["Iv"])
 
         #trim the quantities to be within time discharge_begin to end_time
         time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
@@ -89,111 +88,131 @@ for shot_no in shot_lst:
 
     ### retreive images for OFIT and calibration plane transformation ###
 
-    if use_OFIT or use_calibration_plane_transformation:
-        all_frames = get_frames_for_shot(shot_no) #find all frames number of given experimental shot
-        all_frames_images = [rev_image(shot_no,frame) for frame in all_frames] #retreive all RGB images of given shot
+    # if use_OFIT or use_calibration_plane_transformation:
+    #     all_frames = get_frames_for_shot(shot_no) #find all frames number of given experimental shot
+    #     all_frames_images = [rev_image(shot_no,frame) for frame in all_frames] #retreive all RGB images of given shot
 
-    ### OFIT ###
-    if use_OFIT:
-        all_rows = []
-        for frame_no, img in tqdm(enumerate(all_frames_images, start=1), total=len(all_frames_images), desc="OFIT"):
-            if frame_no % frame_step != 0: continue
+    # ### OFIT ###
+    # if use_OFIT:
+    #     all_rows = []
+    #     for frame_no, img in tqdm(enumerate(all_frames_images, start=1), total=len(all_frames_images), desc="OFIT"):
+    #         if frame_no % frame_step != 0: continue
 
-            #determine time
-            OFIT_time = frame_to_time(frame_no)
+    #         #determine time
+    #         OFIT_time = frame_to_time(frame_no)
 
-            if OFIT_time < discharge_begin:continue
-            if OFIT_time > end_time: break
+    #         if OFIT_time < discharge_begin:continue
+    #         if OFIT_time > end_time: break
 
-            #calculate shift with OFIT
-            (R0,Z0,r), cov = OFIT(img,shot_no,frame_no)
+    #         #calculate shift with OFIT
+    #         (R0,Z0,r), cov = OFIT(img,shot_no,frame_no)
 
-            if None in (R0,Z0,r) or cov is None:
-                continue
+    #         if None in (R0,Z0,r) or cov is None:
+    #             continue
 
-            R0_err, Z0_err, r_err = cov.diagonal()
+    #         R0_err, Z0_err, r_err = cov.diagonal()
 
-            new_row = [OFIT_time, R0-TT1_major_radius, Z0, r, R0_err,Z0_err,r_err]
-            all_rows.append(new_row)
+    #         new_row = [OFIT_time, R0-TT1_major_radius, Z0, r, R0_err,Z0_err,r_err]
+    #         all_rows.append(new_row)
         
-        OFIT_result = pd.DataFrame(
-            all_rows,
-            columns=["OFIT_time", "OFIT_R", "OFIT_Z", "OFIT_r", "OFIT_R_err", "OFIT_Z_err", "OFIT_r_err"]
-        )
+    #     OFIT_result = pd.DataFrame(
+    #         all_rows,
+    #         columns=["OFIT_time", "OFIT_R", "OFIT_Z", "OFIT_r", "OFIT_R_err", "OFIT_Z_err", "OFIT_r_err"]
+    #     )
 
-        OFIT_time = OFIT_result["OFIT_time"]
-        OFIT_Rshift, OFIT_Rerr = OFIT_result["OFIT_R"], OFIT_result["OFIT_R_err"]
-        OFIT_Zshift, OFIT_Zerr=  OFIT_result["OFIT_Z"], OFIT_result["OFIT_Z_err"]
-        OFIT_r, OFIT_rerr =  OFIT_result["OFIT_r"], OFIT_result["OFIT_r_err"]
+    #     OFIT_time = OFIT_result["OFIT_time"]
+    #     OFIT_Rshift, OFIT_Rerr = OFIT_result["OFIT_R"], OFIT_result["OFIT_R_err"]
+    #     OFIT_Zshift, OFIT_Zerr=  OFIT_result["OFIT_Z"], OFIT_result["OFIT_Z_err"]
+    #     OFIT_r, OFIT_rerr =  OFIT_result["OFIT_r"], OFIT_result["OFIT_r_err"]
 
     ### calibration plane ###
 
     if use_calibration_plane_transformation:
         calibration_plane_rows = []
-        for frame_no, img in tqdm(enumerate(all_frames_images,start = 1),total=len(all_frames_images), desc="calibration plane"):    
-            if frame_no % frame_step != 0: continue
+        #path of every images in current shot
+        img_dir = os.path.join(data_directory,"imgs")
 
-            ### perform calculation only within discharge time ###
-            calibration_plane_time = frame_to_time(frame_no)
-            if calibration_plane_time < discharge_begin:continue
-            if calibration_plane_time > end_time: break
-            ###
+            # Extract frames from video if folder does not exist
+    if not os.path.exists(img_dir) or not os.path.isdir(img_dir):
+        video_path = os.path.join(data_directory, f"{shot_no}.avi")
+        extract_frames_from_video(img_dir, video_path)
 
-            img_brightness = np.mean(cv2.cvtColor(img,cv2.COLOR_RGB2GRAY))
-            if img_brightness < 70 or img_brightness > 130: 
-                continue
+    # Get sorted list of images by frame number
+    shot_img_paths = sorted(os.listdir(img_dir), key=lambda x: int(Path(x).stem))
 
-            # clean image and turn to grayscale
-            processed_image = process_image(img,apply_hsv_mask=True)
+    # ---- Process each frame ----
+    for frame_no, img_path in tqdm(enumerate(shot_img_paths, start=1),
+                                total=len(shot_img_paths),
+                                desc="calibration plane"):
+        
+        # Skip frames according to frame_step
+        if frame_no % frame_step != 0:
+            continue
 
-            #detect plasma edge
-            (x_high,y_high), (x_low,y_low) = field_edge_detection(processed_image)
+        # Calculate calibration plane time
+        calibration_plane_time = frame_to_time(frame_no)
+        if calibration_plane_time < discharge_begin:
+            continue
+        if calibration_plane_time > end_time:
+            break
 
-            ### save image of plasma edge detection ###
-            if edge_detection_image:
-                x_com, y_com = np.append(x_high,x_low), np.append(y_high,y_low)
-                img_detection = img.copy()
-                for x, y in zip(x_com, y_com):
-                    img_detection[y-3:y+3,x-3:x+3] = [255,0,0]
-                output_dir = Path(os.path.join("result_plot","edge_detection",str(shot_no)))
-                output_dir.mkdir(parents = True, exist_ok=True)
-                filename = os.path.join(output_dir, str(frame_no) + ".jpg")
-                mpimg.imsave(filename,img_detection)
-            ######
+        # Load image
+        img = mpimg.imread(os.path.join(img_dir, img_path))
 
-            #transform y = 0 to be at center of image
-            y_high, y_low = y_high - 1080//2, y_low - 1080//2
+        # Convert float images to 0-255 uint8
+        if img.dtype == np.float32 or img.dtype == np.float64:
+            img = (img * 255).astype(np.uint8)
 
-            #convert to calibration_plane
+        # Calculate image brightness
+        img_brightness = np.mean(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+        if img_brightness < 70 or img_brightness > 130:
+            continue
 
-            u_high, v_high = pixel_to_calibration(x_high,500), pixel_to_calibration(y_high,0)
-            u_low, v_low = pixel_to_calibration(x_low,500), pixel_to_calibration(y_low,0)
+        # Process image
+        processed_image = process_image(img, apply_hsv_mask=True)
 
-            (u0,v0,radius), circle_var, *_ = RANSAC_circle(np.append(u_high,u_low), np.append(v_high,v_low),epsilon = 0.001)
+        # Detect plasma edges
+        (x_high, y_high), (x_low, y_low) = field_edge_detection(processed_image)
 
-            #error bars
-            all_u = np.append(u_high, u_low)
-            all_v = np.append(v_high, v_low)
-            residuals = np.sqrt((all_u - u0)**2 + (all_v - v0)**2) - radius
+        # Optional: save edge detection image
+        if edge_detection_image:
+            x_com, y_com = np.append(x_high, x_low), np.append(y_high, y_low)
+            img_detection = img.copy()
+            for x, y in zip(x_com, y_com):
+                img_detection[y-3:y+3, x-3:x+3] = [255, 0, 0]
+            output_dir = Path(os.path.join("result_plot", "edge_detection", str(shot_no)))
+            output_dir.mkdir(parents=True, exist_ok=True)
+            filename = os.path.join(output_dir, f"{frame_no}.jpg")
+            mpimg.imsave(filename, img_detection)
 
-            # Degrees of freedom = number of points - number of parameters
-            dof = len(residuals) - 3  # 3 parameters: u0, v0, radius
+        # Transform y = 0 to center of image
+        y_high, y_low = y_high - 1080 // 2, y_low - 1080 // 2
 
-            # Reduced chi-square
-            s_sq = np.sum(residuals**2) / dof
+        # Convert to calibration plane
+        u_high, v_high = pixel_to_calibration(x_high, 500), pixel_to_calibration(y_high, 0)
+        u_low, v_low = pixel_to_calibration(x_low, 500), pixel_to_calibration(y_low, 0)
 
-            # Scale covariance
-            cov_scaled = circle_var * s_sq
+        # Fit circle using RANSAC
+        (u0, v0, radius), circle_var, *_ = RANSAC_circle(np.append(u_high, u_low), np.append(v_high, v_low), epsilon=0.001)
 
-            # 1-sigma uncertainties
-            sigma_u0, sigma_v0, sigma_radius = np.sqrt(np.diag(cov_scaled))
+        # Calculate error bars
+        all_u = np.append(u_high, u_low)
+        all_v = np.append(v_high, v_low)
+        residuals = np.sqrt((all_u - u0) ** 2 + (all_v - v0) ** 2) - radius
 
-            calibration_plane_rows.append([calibration_plane_time,u0 - R0,sigma_u0,v0,sigma_v0,radius,sigma_radius])
+        dof = len(residuals) - 3  # degrees of freedom
+        s_sq = np.sum(residuals ** 2) / dof
+        cov_scaled = circle_var * s_sq
+        sigma_u0, sigma_v0, sigma_radius = np.sqrt(np.diag(cov_scaled))
 
-        calibration_plane_df = pd.DataFrame(
-            calibration_plane_rows,
-            columns=["time","x0","x0 err","y0", "y0 err","r", "r err"]
-        )
+        # Append results
+        calibration_plane_rows.append([calibration_plane_time, u0 - R0, sigma_u0, v0, sigma_v0, radius, sigma_radius])
+
+    # ---- Create DataFrame ----
+    calibration_plane_df = pd.DataFrame(
+        calibration_plane_rows,
+        columns=["time", "x0", "x0 err", "y0", "y0 err", "r", "r err"]
+    )
 
     #plotting 
     def toroidal_filament_plot(ax, arr, direction, step=100):
@@ -234,11 +253,11 @@ for shot_no in shot_lst:
             toroidal_filament_plot(axR,toroidal_R0_arr,"R")
             toroidal_filament_plot(axZ,toroidal_Z0_arr,"Z")
 
-        if use_OFIT:
-            axR.plot(OFIT_time, OFIT_Rshift, color="black", label="OFIT")
-            axR.errorbar(OFIT_time, OFIT_Rshift, yerr=OFIT_Rerr, alpha=0.1, color="black")
-            axZ.plot(OFIT_time, OFIT_Zshift, color="black", label="OFIT")
-            axZ.errorbar(OFIT_time, OFIT_Zshift, yerr=OFIT_Zerr, alpha=0.1, color="black")
+        # if use_OFIT:
+        #     axR.plot(OFIT_time, OFIT_Rshift, color="black", label="OFIT")
+        #     axR.errorbar(OFIT_time, OFIT_Rshift, yerr=OFIT_Rerr, alpha=0.1, color="black")
+        #     axZ.plot(OFIT_time, OFIT_Zshift, color="black", label="OFIT")
+        #     axZ.errorbar(OFIT_time, OFIT_Zshift, yerr=OFIT_Zerr, alpha=0.1, color="black")
         
         if use_calibration_plane_transformation:
             axR.errorbar(calibration_plane_df["time"], calibration_plane_df["x0"],yerr = calibration_plane_df["x0 err"],fmt = ".--",color = "black")
@@ -264,4 +283,5 @@ for shot_no in shot_lst:
 
         plt.tight_layout()
         plt.savefig(save_path)
+        print(f"Saved result to: {save_path}")
         plt.clf()
