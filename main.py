@@ -28,7 +28,6 @@ shot_lst = [1641,1643]
 #define what methods to use
 
 use_toroidal_filament_model = True
-use_OFIT = False
 use_calibration_plane_transformation = True
 
 edge_detection_image = False
@@ -86,47 +85,7 @@ for shot_no in shot_lst:
         #result for toroidal filament model
         valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
 
-    ### retreive images for OFIT and calibration plane transformation ###
-
-    # if use_OFIT or use_calibration_plane_transformation:
-    #     all_frames = get_frames_for_shot(shot_no) #find all frames number of given experimental shot
-    #     all_frames_images = [rev_image(shot_no,frame) for frame in all_frames] #retreive all RGB images of given shot
-
-    # ### OFIT ###
-    # if use_OFIT:
-    #     all_rows = []
-    #     for frame_no, img in tqdm(enumerate(all_frames_images, start=1), total=len(all_frames_images), desc="OFIT"):
-    #         if frame_no % frame_step != 0: continue
-
-    #         #determine time
-    #         OFIT_time = frame_to_time(frame_no)
-
-    #         if OFIT_time < discharge_begin:continue
-    #         if OFIT_time > end_time: break
-
-    #         #calculate shift with OFIT
-    #         (R0,Z0,r), cov = OFIT(img,shot_no,frame_no)
-
-    #         if None in (R0,Z0,r) or cov is None:
-    #             continue
-
-    #         R0_err, Z0_err, r_err = cov.diagonal()
-
-    #         new_row = [OFIT_time, R0-TT1_major_radius, Z0, r, R0_err,Z0_err,r_err]
-    #         all_rows.append(new_row)
-        
-    #     OFIT_result = pd.DataFrame(
-    #         all_rows,
-    #         columns=["OFIT_time", "OFIT_R", "OFIT_Z", "OFIT_r", "OFIT_R_err", "OFIT_Z_err", "OFIT_r_err"]
-    #     )
-
-    #     OFIT_time = OFIT_result["OFIT_time"]
-    #     OFIT_Rshift, OFIT_Rerr = OFIT_result["OFIT_R"], OFIT_result["OFIT_R_err"]
-    #     OFIT_Zshift, OFIT_Zerr=  OFIT_result["OFIT_Z"], OFIT_result["OFIT_Z_err"]
-    #     OFIT_r, OFIT_rerr =  OFIT_result["OFIT_r"], OFIT_result["OFIT_r_err"]
-
     ### calibration plane ###
-
     if use_calibration_plane_transformation:
         calibration_plane_rows = []
         #path of every images in current shot
@@ -245,20 +204,14 @@ for shot_no in shot_lst:
                 capsize=3
             )
 
-    if True in [use_toroidal_filament_model, use_OFIT, use_calibration_plane_transformation]:
+    if True in [use_toroidal_filament_model, use_calibration_plane_transformation]:
 
         fig, (axR, axZ) = plt.subplots(1,2,figsize = (8,6))
 
         if use_toroidal_filament_model:    
             toroidal_filament_plot(axR,toroidal_R0_arr,"R")
             toroidal_filament_plot(axZ,toroidal_Z0_arr,"Z")
-
-        # if use_OFIT:
-        #     axR.plot(OFIT_time, OFIT_Rshift, color="black", label="OFIT")
-        #     axR.errorbar(OFIT_time, OFIT_Rshift, yerr=OFIT_Rerr, alpha=0.1, color="black")
-        #     axZ.plot(OFIT_time, OFIT_Zshift, color="black", label="OFIT")
-        #     axZ.errorbar(OFIT_time, OFIT_Zshift, yerr=OFIT_Zerr, alpha=0.1, color="black")
-        
+            
         if use_calibration_plane_transformation:
             axR.errorbar(calibration_plane_df["time"], calibration_plane_df["x0"],yerr = calibration_plane_df["x0 err"],fmt = ".--",color = "black")
             axZ.errorbar(calibration_plane_df["time"], calibration_plane_df["y0"],yerr = calibration_plane_df["y0 err"],fmt = ".--",color = "black", label = "calibration plane")
