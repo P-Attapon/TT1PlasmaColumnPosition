@@ -71,3 +71,37 @@ def probe_lst_to_str(lst):
     for i, probe_num in enumerate(lst): 
         arr_str += str(probe_num) if i==0 else " " + str(probe_num)
     return arr_str
+
+error_dict = {
+    probe_lst_to_str([11,12,5,6]) + "R": 8.398081e-03,
+    probe_lst_to_str([11,1,5,7]) + "R": 0.008264,
+    probe_lst_to_str([11,2,5,8]) + "R": 0.004972,
+    probe_lst_to_str([11,3,5,9]) + "R": 0.003290,
+    probe_lst_to_str([11,4,5,10]) + "R": 2.401759e-03,
+    probe_lst_to_str([12,1,6,7]) + "R": 0.011363,
+    probe_lst_to_str([12,2,6,8]) + "R": 0.01067944,
+    probe_lst_to_str([12,3,6,9]) + "R": 0.007471,
+    probe_lst_to_str([12,4,6,10]) + "R": 0.002210,
+    probe_lst_to_str([1,2,7,8]) + "R": 0.018785,
+    probe_lst_to_str([1,3,7,9]) + "R": 0.011572,
+    probe_lst_to_str([1,4,7,10]) + "R": 2e-03,          # already in original
+    probe_lst_to_str([2,3,8,9]) + "R": 0.002631736,
+    probe_lst_to_str([2,4,8,10]) + "R": 10e-3,          # already in original
+    probe_lst_to_str([3,4,9,10]) + "R": 0.002609,
+
+    probe_lst_to_str([11,12,5,6]) + "Z": 0.010126,
+    probe_lst_to_str([11,1,5,7]) + "Z": 1.100149e-03,
+    probe_lst_to_str([11,2,5,8]) + "Z": 4.156911e-03,
+    probe_lst_to_str([11,3,5,9]) + "Z": 0.003804,
+    probe_lst_to_str([11,4,5,10]) + "Z": 0.008803185,
+    probe_lst_to_str([12,1,6,7]) + "Z": 0.001388,
+    probe_lst_to_str([12,2,6,8]) + "Z": 0.000679,
+    probe_lst_to_str([12,3,6,9]) + "Z": 0.004467138,
+    probe_lst_to_str([12,4,6,10]) + "Z": 0.010728,
+    probe_lst_to_str([1,2,7,8]) + "Z": 0.005613,
+    probe_lst_to_str([1,3,7,9]) + "Z": 0.003670659,
+    probe_lst_to_str([1,4,7,10]) + "Z": 2e-03,           # already in original
+    probe_lst_to_str([2,3,8,9]) + "Z": 0.012130,
+    probe_lst_to_str([2,4,8,10]) + "Z": 2e-3,           # already in original
+    probe_lst_to_str([3,4,9,10]) + "Z": 0.010763,
+}

@@ -11,7 +11,7 @@ from pathlib import Path
 #toroidal filament functions
 from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,mk_noise_df
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
-from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff, R0, probe_lst_to_str
+from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff, R0, probe_lst_to_str, error_dict
 
 #OFIT
 from methods_script.OFIT.OFIT import OFIT, process_image, field_edge_detection
@@ -26,24 +26,20 @@ plt.style.use("seaborn-v0_8-dark-palette")
 shot_lst = [1641,1643]
 
 #define what methods to use
-
 use_toroidal_filament_model = True
 use_calibration_plane_transformation = True
 
+#If true will save edge detection of each frame in result_plot/edge_detection
 edge_detection_image = False
 
+#frames interval to skip in calibration plane (frame_step = 1) to use all frames
 frame_step = 3
 
 #save path of final plot
 save_directory = os.path.join("result_plot","calculation_result")
 
-use_probes = [[1,4,7,10],[2,4,8,10]] #specify magnetic probes to be used (all_arrays for all combination)
-
-#dictionary of erro bars calculated from simulation_toroidal_filament.py
-error_dict = {
-    probe_lst_to_str([1,4,7,10]) + "R": 2e-03, probe_lst_to_str([2,4,8,10]) + "R": 10e-3,
-    probe_lst_to_str([1,4,7,10]) + "Z": 2e-03, probe_lst_to_str([2,4,8,10]) + "Z": 2e-3,
-}
+#specify magnetic probes to be used (all_arrays for all combination)
+use_probes = all_arrays
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = np.inf #ms
@@ -211,7 +207,7 @@ for shot_no in shot_lst:
         if use_toroidal_filament_model:    
             toroidal_filament_plot(axR,toroidal_R0_arr,"R")
             toroidal_filament_plot(axZ,toroidal_Z0_arr,"Z")
-            
+
         if use_calibration_plane_transformation:
             axR.errorbar(calibration_plane_df["time"], calibration_plane_df["x0"],yerr = calibration_plane_df["x0 err"],fmt = ".--",color = "black")
             axZ.errorbar(calibration_plane_df["time"], calibration_plane_df["y0"],yerr = calibration_plane_df["y0 err"],fmt = ".--",color = "black", label = "calibration plane")
