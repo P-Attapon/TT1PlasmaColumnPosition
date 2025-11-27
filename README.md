@@ -14,7 +14,7 @@ In this directory the following files must exist:
     2) "IT1.txt"  
     3) "IOH1.txt"   
     4) "IV2.txt"  
-    5) "GBPXT.txt" #Here "X" denote number 1 - 12  
+    5) "GBP1T.txt", ... ,"GBP12T"
     6) shot_number.avi  
 
 if a subdirectory called `imgs` does not exist, all frames from the .avi video will be extracted into this newly created folder.
