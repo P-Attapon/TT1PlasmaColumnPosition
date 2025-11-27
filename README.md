@@ -26,8 +26,6 @@ See `data/1641` and `data/1643` for the format of working input files. **Be care
 
 Inside `main.py`, a section denoted with "Parameter setup" can be found. Parameters of the calculation may be edited within this region
 
-`shot_lst` specifies number of all shots to run calculation on !the `data/shot_number` directory must exist before hand!
-
 # Directory Structure
 
 ## General Structure
