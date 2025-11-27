@@ -19,6 +19,8 @@ In this directory the following files must exist:
 
 if a subdirectory called `imgs` does not exist, all frames from the .avi video will be extracted into this newly created folder.
 
+See `data/1641` and `data/1643` for the format of working input files. **Be careful on time step within .txt files**
+
 ## model execution
 `main.py` is to be executed to run the models.
 
@@ -27,16 +29,24 @@ Inside `main.py`, a section denoted with "Parameter setup" can be found. Paramet
 `shot_lst` specifies number of all shots to run calculation on !the `data/shot_number` directory must exist before hand!
 
 # Directory Structure
-The structure of this directory is as followed:
 
-"main.py" is the main script which executes the toroidal filament model calibration plane transformation from experimental data. In this file, it is possible to specify which models are to be used and plotted. 
+## General Structure
+"main.py" is the main script which executes the toroidal filament model calibration plane transformation from experimental data.
 
-"resources" directory contains every experimental data required by main.py to function.
+"data" directory contains every experimental data required by main.py to function.
 
+## Backend Calculation
 "methods_script" directory contains the functions of "toroidal_filament" and "OFIT" which are used in "main.py" to perform calculations.
 
-The "toroidal_filament" directory in "methods_script" contains different .py files used to perform the calculation. plasma_shift.py combines all the other files to perform toroidal filament model. parameters.py specify all the parameters used in the calculation such as major and minor radius and all set of magnetic probes defined for calculation. "coefficent_nested_dict.pkl" contains all the taylor polynomial coefficients used in this model. All the other .py files contain functions of calculation splitted into different subsections.
+### The Toroidal Filament Model
+`TFM.py`: The heart of the Toroidal Filament Model. It combines all the other files to perform toroidal filament model calculation.
+`parameters.py` specify all the parameters required in the calculation. 
+`coefficent_nested_dict.pkl` contains all the taylor polynomial coefficients used in this model.
 
-In "OFIT" subdirectory, "OFIT.py" combines all the calculation functions of different python files used for Optical Boundary Reconstruction. All the parameters required for OFIT such as ROIs are stored in "parameter.py". "TT1_port_pixel.pkl" stores all the excluded pixels for edge detection in TT-1 tokamak.
+### OFIT
+`OFIT.py` combines all the calculation functions of different python files used for Optical Boundary Reconstruction. 
+`parameter.py`: contains all the parameters required for OFIT such as ROIs.
+`TT1_port_pixel.pkl` stores all the excluded pixels for edge detection in TT-1 tokamak as a set of (x,y) pixels.
 
-All the plots and images used in the publication are found in plotting.ipynb, and simulation of toroidal filament model and OFIT used for error and run time analysis can be found in "simulation_toroidal_filament.py" and "simulation_OFIT.py" respectively.
+## Simulation files
+Simulation of toroidal filament model and OFIT used for error and run time analysis can be found in `simulation/simulation_toroidal_filament.py` and `simulation/simulation_OFIT.py`.
