@@ -12,6 +12,7 @@ from pathlib import Path
 from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,mk_noise_df
 from methods_script.toroidal_filament.plasma_shift import toroidal_filament_shift_progression
 from methods_script.toroidal_filament.parameters import all_arrays, calibration_coeff, R0, probe_lst_to_str, error_dict
+from methods_script.toroidal_filament.TFM import TFM_main
 
 #OFIT
 from methods_script.OFIT.OFIT import OFIT, process_image, field_edge_detection
@@ -23,6 +24,8 @@ from methods_script.OFIT.extract_frames import extract_frames_from_video
 plt.style.use("seaborn-v0_8-dark-palette")
 
 ##################### Parameter setup ############################################
+#`specifies number of all shots to run calculation on 
+# !!!the `data/shot_number` directory must exist before hand!!! See README file
 shot_lst = [1641,1643]
 
 #define what methods to use
@@ -64,24 +67,8 @@ for shot_no in shot_lst:
         continue
 
     if use_toroidal_filament_model:
-        #calculate noise removed signal, time steps, discharge begin time, discharge end time from experimental data
-
-        ### toroidal filament model ###
-
-        magnetic_signal = retreive_magnetic_signal(shot_no)
-
-        toroidal_current = read_txt(os.path.join(data_directory,"IT1.txt"),["Time (ms)", "It"])
-        ohmic_current = read_txt(os.path.join(data_directory,"IOH1.txt"), ["Time (ms)", "Ioh"])
-        vertical_current = read_txt(os.path.join(data_directory,"IV2.txt"), ["Time (ms)", "Iv"])
-
-        magnetic_signal = calibrate_signal_df(magnetic_signal,toroidal_current["It"],ohmic_current["Ioh"],vertical_current["Iv"])
-
-        #trim the quantities to be within time discharge_begin to end_time
-        time, plasma_current, plasma_signal = trim_quantities(recorded_time,magnetic_signal,recorded_plasma_current,discharge_begin,end_time)
-
-        #calculate shift with toroidal filament
-        #result for toroidal filament model
-        valid_time, toroidal_R0_arr, toroidal_R0_err, toroidal_Z0_arr, toroidal_Z0_err = toroidal_filament_shift_progression(time,plasma_signal,use_probes)
+        use_probes_str = [probe_lst_to_str(probe_set) for probe_set in use_probes]
+        displacement_df = TFM_main(shot_path = data_directory, use_probe_set = use_probes_str)
 
     ### calibration plane ###
     if use_calibration_plane_transformation:
@@ -171,68 +158,118 @@ for shot_no in shot_lst:
         columns=["time", "x0", "x0 err", "y0", "y0 err", "r", "r err"]
     )
 
-    #plotting 
-    def toroidal_filament_plot(ax, arr, direction, step=100):
-        """
-        ax        : matplotlib axis
-        arr       : list/array of calculated values per probe
-        direction : string to select error from error_dict
-        step      : plot error bars every 'step' points
-        """
-        for t, shift, probe_arr in zip(valid_time, arr, use_probes):
-            # Plot main line
-            line = ax.plot(t, shift, label=f"{probe_arr}")
-            color = line[0].get_color()
+    # Define color cycle (matplotlib default)
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-            # Select points for error bars
-            t_err = t[::step]
-            shift_err = shift[::step]
+    def error_line_overlay(ax, t, displacement, probe_set, direction, color, step=200):
+        """Overlay scalar error bars at downsampled points."""
+        t_err = t[::step]
+        dis_err = displacement[::step]
+        err_value = error_dict[probe_set + direction]
 
-            # Get the scalar error from the dict
-            err_value = error_dict[probe_lst_to_str(probe_arr) + direction]
+        ax.errorbar(
+            t_err,
+            dis_err,
+            yerr=err_value,
+            fmt='none',
+            color=color,
+            alpha=0.7,
+            capsize=3
+        )
 
-            # Plot error bars only at selected points
-            ax.errorbar(
-                t_err,
-                shift_err,
-                yerr=err_value,   # scalar is fine
-                alpha=0.7,
-                color=color,
-                fmt='none',
+
+    # Plot only if at least one method is active
+    if use_toroidal_filament_model or use_calibration_plane_transformation:
+
+        fig, (axR, axZ) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+
+        label_colors = {}
+
+        # -------------------------------
+        # TFM displacement curves (R, Z)
+        # -------------------------------
+        if use_toroidal_filament_model:
+
+            time = displacement_df["Time (ms)"]
+
+            for col in displacement_df.columns:
+                if col in ("Time (ms)", "IP"):
+                    continue
+
+                disp = displacement_df[col]
+                label = col[:-2]        # e.g. "14710"
+
+                # Assign color per probe group
+                if label not in label_colors:
+                    label_colors[label] = colors[len(label_colors) % len(colors)]
+                color = label_colors[label]
+
+                if col.endswith("R"):
+                    axR.plot(time, disp, color=color)
+                    error_line_overlay(axR, time, disp, label, "R", color)
+
+                elif col.endswith("Z"):
+                    axZ.plot(time, disp, color=color, label=f"probe {label}")
+                    error_line_overlay(axZ, time, disp, label, "Z", color)
+
+
+        # -------------------------------
+        # Calibration-plane circle results
+        # -------------------------------
+        if use_calibration_plane_transformation and len(calibration_plane_df) > 0:
+            axR.errorbar(
+                calibration_plane_df["time"],
+                calibration_plane_df["x0"],
+                yerr=calibration_plane_df["x0 err"],
+                fmt=".-",
+                color="k",
                 capsize=3
             )
 
-    if True in [use_toroidal_filament_model, use_calibration_plane_transformation]:
+            axZ.errorbar(
+                calibration_plane_df["time"],
+                calibration_plane_df["y0"],
+                yerr=calibration_plane_df["y0 err"],
+                fmt=".-",
+                color="k",
+                capsize=3
+            )
 
-        fig, (axR, axZ) = plt.subplots(1,2,figsize = (8,6))
+            axZ.plot([], [], color="k", label="Edge detection")
 
-        if use_toroidal_filament_model:    
-            toroidal_filament_plot(axR,toroidal_R0_arr,"R")
-            toroidal_filament_plot(axZ,toroidal_Z0_arr,"Z")
 
-        if use_calibration_plane_transformation:
-            axR.errorbar(calibration_plane_df["time"], calibration_plane_df["x0"],yerr = calibration_plane_df["x0 err"],fmt = ".--",color = "black")
-            axZ.errorbar(calibration_plane_df["time"], calibration_plane_df["y0"],yerr = calibration_plane_df["y0 err"],fmt = ".--",color = "black", label = "calibration plane")
-
+        # --------------------------------
+        # Axis labels, limits, extras
+        # --------------------------------
         axR.set_ylabel(r"$\Delta_R$ [m]")
-        axR.set_title("centroid horizontal displacement")
-
         axZ.set_ylabel(r"$\Delta_Z$ [m]")
-        axZ.set_title("centroid vertical displacement")
+        axZ.set_xlabel("time [ms]")
 
-        axZ.legend(ncol=2, title = "Magnetic probe numbers")
+        axZ.legend(ncol=2, fontsize="small", loc="lower center", frameon=False)
 
-        for ax in (axR,axZ):
-            ax.set_xlim(discharge_begin, end_time)
-            ax.set_ylim(-0.3,0.3)
-            ax.grid()
-            ax.set_xlabel("time [ms]")
+        labels = ["(a)", "(b)"]
+        for i, axis in enumerate((axR, axZ)):
+            axis.set_ylim(-0.2, 0.2)
+            axis.set_xlim(time.min(), time.max())
+            axis.text(
+                0.02, 0.95, labels[i],
+                transform=axis.transAxes,
+                fontsize=16,
+                fontweight='bold',
+                va='top', ha='left'
+            )
 
-        fig.suptitle(f"result of shot {shot_no}")
+        axR.axhline(0, ls="--", color="gray", alpha=0.3)
+        axZ.axhline(0, ls="--", color="gray", alpha=0.3)
 
-        save_path = os.path.join(save_directory, str(shot_no))
+        fig.suptitle(f"Shot {shot_no}", y=0.94)
 
         plt.tight_layout()
-        plt.savefig(save_path)
-        print(f"Saved result to: {save_path}")
-        plt.clf()
+
+        # Save
+        os.makedirs(save_directory, exist_ok=True)
+        save_path = os.path.join(save_directory, f"{shot_no}.png")
+        plt.savefig(save_path, dpi=200, bbox_inches='tight')
+        print(f"Calculation result saved to: {save_path}")
+
+        plt.close()
