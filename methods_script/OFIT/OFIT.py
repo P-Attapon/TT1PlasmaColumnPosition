@@ -2,14 +2,18 @@ import cv2
 import numpy as np
 import pickle
 from pathlib import Path
-
+import os
 from tqdm import tqdm
 
 from .parameters import TT1_linear_pixel_density,TT1_camera_principle_point,TT1_camera_translation,TT1_camera_rotation, TT1_dist_coeffs,TT1_image_kernel, TT1_circular_ROIs
+from .parameters import TT1_major_radius as R0
 from .detection_projection import mk_intrinsic_matrix, mk_projection_matrix,kernel_filter,max_intensity, max_gradient, find_edge,pix_to_projection
 from .transformation import poloidal_transformation, RANSAC_circle, circle_fit
 from .local_image import rev_image
+from .extract_frames import extract_frames_from_video
 
+import matplotlib.image as mpimg
+import pandas as pd
 """
 calculate plasma shift from CCD image without plotting
 
@@ -187,3 +191,102 @@ def OFIT(
     (R0,Z0,r), cov, _, _ = circle_fit(R,Z)
 
     return (R0,Z0,r), cov
+
+def calibration_plane_shift(data_directory,shot_no,frame_step,discharge_begin,discharge_end,edge_detection_image = False):
+    """
+    Calculate plasma column position shift using transformation from calibration plane
+    """
+
+    #function to convert frame number to time with given formula
+    frame_to_time = lambda frame: frame/2 + 260
+
+    #function to transform pixel to calibration plane
+    pixel_to_calibration = lambda q,edge_pixel, pixel_plane_ratio=0.9: (q - edge_pixel)*pixel_plane_ratio/1000
+
+    calibration_plane_rows = []
+    #path of every images in current shot
+    img_dir = os.path.join(data_directory,"imgs")
+
+            # Extract frames from video if folder does not exist
+    if not os.path.exists(img_dir) or not os.path.isdir(img_dir):
+        video_path = os.path.join(data_directory, f"{shot_no}.avi")
+        extract_frames_from_video(img_dir, video_path)
+
+    # Get sorted list of images by frame number
+    shot_img_paths = sorted(os.listdir(img_dir), key=lambda x: int(Path(x).stem))
+
+    # ---- Process each frame ----
+    for frame_no, img_path in tqdm(enumerate(shot_img_paths, start=1),
+                                total=len(shot_img_paths),
+                                desc="calibration plane"):
+        
+        # Skip frames according to frame_step
+        if frame_no % frame_step != 0:
+            continue
+
+        # Calculate calibration plane time
+        calibration_plane_time = frame_to_time(frame_no)
+        if calibration_plane_time < discharge_begin:
+            continue
+        if calibration_plane_time > discharge_end:
+            break
+
+        # Load image
+        img = mpimg.imread(os.path.join(img_dir, img_path))
+
+        # Convert float images to 0-255 uint8
+        if img.dtype == np.float32 or img.dtype == np.float64:
+            img = (img * 255).astype(np.uint8)
+
+        # Calculate image brightness
+        img_brightness = np.mean(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+        if img_brightness < 70 or img_brightness > 130:
+            continue
+
+        # Process image
+        processed_image = process_image(img, apply_hsv_mask=True)
+
+        # Detect plasma edges
+        (x_high, y_high), (x_low, y_low) = field_edge_detection(processed_image)
+
+        # Optional: save edge detection image
+        if edge_detection_image:
+            x_com, y_com = np.append(x_high, x_low), np.append(y_high, y_low)
+            img_detection = img.copy()
+            for x, y in zip(x_com, y_com):
+                img_detection[y-3:y+3, x-3:x+3] = [255, 0, 0]
+            output_dir = Path(os.path.join("result_plot", "edge_detection", str(shot_no)))
+            output_dir.mkdir(parents=True, exist_ok=True)
+            filename = os.path.join(output_dir, f"{frame_no}.jpg")
+            mpimg.imsave(filename, img_detection)
+
+        # Transform y = 0 to center of image
+        y_high, y_low = y_high - 1080 // 2, y_low - 1080 // 2
+
+        # Convert to calibration plane
+        u_high, v_high = pixel_to_calibration(x_high, 500), pixel_to_calibration(y_high, 0)
+        u_low, v_low = pixel_to_calibration(x_low, 500), pixel_to_calibration(y_low, 0)
+
+        # Fit circle using RANSAC
+        (u0, v0, radius), circle_var, *_ = RANSAC_circle(np.append(u_high, u_low), np.append(v_high, v_low), epsilon=0.001)
+
+        # Calculate error bars
+        all_u = np.append(u_high, u_low)
+        all_v = np.append(v_high, v_low)
+        residuals = np.sqrt((all_u - u0) ** 2 + (all_v - v0) ** 2) - radius
+
+        dof = len(residuals) - 3  # degrees of freedom
+        s_sq = np.sum(residuals ** 2) / dof
+        cov_scaled = circle_var * s_sq
+        sigma_u0, sigma_v0, sigma_radius = np.sqrt(np.diag(cov_scaled))
+
+        # Append results
+        calibration_plane_rows.append([calibration_plane_time, u0 - R0, sigma_u0, v0, sigma_v0, radius, sigma_radius])
+
+    # ---- Create DataFrame ----
+    calibration_plane_df = pd.DataFrame(
+        calibration_plane_rows,
+        columns=["time", "x0", "x0 err", "y0", "y0 err", "r", "r err"]
+    )
+
+    return calibration_plane_df
