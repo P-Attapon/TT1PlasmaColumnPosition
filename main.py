@@ -72,6 +72,7 @@ for shot_no in shot_lst:
             discharege_end = end_time, edge_detection = edge_detection_image
         )
 
+    ### Plotting ###
     # Define color cycle (matplotlib default)
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
