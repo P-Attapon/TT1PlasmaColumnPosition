@@ -29,9 +29,11 @@ Inside `main.py`, a section denoted with "Parameter setup" can be found. Paramet
 # Directory Structure
 
 ## General Structure
-"main.py" is the main script which executes the toroidal filament model calibration plane transformation from experimental data.
+`main.py` is the main script which executes the toroidal filament model calibration plane transformation from experimental data.
 
-"data" directory contains every experimental data required by main.py to function.
+`data` directory contains every experimental data required by main.py to function.
+
+Calculation results, edge detection on images, and simulations for the toroidal filament model can be found in the `result_plot` directory.
 
 ## Backend Calculation
 "methods_script" directory contains the functions of "toroidal_filament" and "OFIT" which are used in "main.py" to perform calculations.
