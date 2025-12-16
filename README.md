@@ -1,6 +1,6 @@
 # TT1PlasmaColumnPosition
 
-This repository contains the python implemented code for calculation of Toroidal Filament Model (with linear time complexity) and Optical Boundary Reconstruction (OFIT) in Thailand Tokamak-1 with the aim to calculate plasma column position within the tokamak and provide foundation for future real-time negative-feedback control. The details of theoretical background and implication are shown in "ANALYSIS OF PLASMA POSITION IN THAILAND TOKAMAK-1 USING TOROIDAL FILAMENT MODEL.pdf" to be signed and publised in MUIC library database. 
+This repository contains the python implemented code for calculation of Toroidal Filament Model (with linear time complexity) and Optical Boundary Reconstruction (OFIT) in Thailand Tokamak-1 with the aim to calculate plasma column position within the tokamak and provide foundation for future real-time negative-feedback control. The details of theoretical background and implication are shown in "ANALYSIS OF PLASMA POSITION IN THAILAND TOKAMAK-1 USING TOROIDAL FILAMENT MODEL.pdf" also avaiable in MUIC's library database. 
 
 # Usage
 
