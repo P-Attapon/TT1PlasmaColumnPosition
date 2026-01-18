@@ -283,6 +283,7 @@ def calibration_plane_shift(data_directory,shot_no,frame_step,discharge_begin,di
         # Append results
         calibration_plane_rows.append([calibration_plane_time, u0 - R0, sigma_u0, v0, sigma_v0, radius, sigma_radius])
 
+    print("Terminated: discharge complete")
     # ---- Create DataFrame ----
     calibration_plane_df = pd.DataFrame(
         calibration_plane_rows,

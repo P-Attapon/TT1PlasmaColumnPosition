@@ -6,7 +6,6 @@ from tqdm import tqdm
 import pandas as pd
 import os
 import cv2
-from pathlib import Path
 
 #toroidal filament functions
 from methods_script.toroidal_filament.process_probe_data import retreive_plasma_current, retreive_magnetic_signal,trim_quantities, calibrate_signal_df, read_txt,mk_noise_df
