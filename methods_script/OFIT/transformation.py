@@ -161,7 +161,7 @@ def circle_fit(R:NDArray, Z:NDArray, init_guess:NDArray = (TT1_major_radius,0,TT
 
     return circle_params, circle_var, R, Z
 
-def RANSAC_circle(R,Z,sample_size=10,n=1000,epsilon=0.001,circle_init_guess = (TT1_major_radius,0,TT1_minor_radius)):
+def RANSAC_circle(R,Z,sample_size=10,n=30,epsilon=0.001,circle_init_guess = (TT1_major_radius,0,TT1_minor_radius)):
     """
     perform RANSAC algorithm to determine circle parameters in proloidal plane
 
