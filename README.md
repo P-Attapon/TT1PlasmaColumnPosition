@@ -59,4 +59,6 @@ Also, magnetic field contribution from vessle's eddies induced by the plasma can
 ## Optical Boundary Reconstruction
 Current implementation of the optical boundary reconstruction perform edge detection on Full-HD image (1920x1080) which greatly deterior the computation speed. The image can be reduced to lower resolution but the conversion factor between pixel and world coordinate must also be changed accordingly.  
 
-Furthermore, the full implementation of optical boundary reconstruction incoporating the camera calibration parameters can be incoperated into the model once the parameters for the camera is known.
+1) Incoporate the camera calibration parameters into the model once the parameters for the camera is known for full implementation of OFIT.
+2) Different algorithm besides RANSAC can be explored (e.g. GradientBoosting, Hough transform)
+3) Apply Principle Components Analysis (PCA) to images to reduce dimensionality
