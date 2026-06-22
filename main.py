@@ -25,17 +25,18 @@ plt.style.use("seaborn-v0_8-dark-palette")
 ##################### Parameter setup ############################################
 #`specifies number of all shots to run calculation on 
 # !!!the `data/shot_number` directory must exist before hand!!! See README file
+#shot_lst = [int(shot_num) for shot_num in os.listdir("data") if shot_num.isnumeric()]
 shot_lst = [1641]
 
 #define what methods to use
-use_toroidal_filament_model = True              #if false the model will be skipped
+use_toroidal_filament_model = False              #if false the model will be skipped
 use_calibration_plane_transformation = True     #if false the model will be skipped
 
 #If true, then save edge detection image of each frame in result_plot/edge_detection/shot_number
 edge_detection_image = False
 
 #frames interval to skip in calibration plane (frame_step = 1) to use all frames
-frame_step = 3
+frame_step = 1
 
 #save path of final plot
 save_directory = os.path.join("result_plot","calculation_result")
@@ -151,7 +152,7 @@ for shot_no in shot_lst:
 
             axZ.plot([], [], color="k", label="Edge detection")
 
-
+            calibration_plane_df.to_csv(os.path.join(save_directory,'displacementCCD.csv'))
         # --------------------------------
         # Axis labels, limits, extras
         # --------------------------------
@@ -164,7 +165,7 @@ for shot_no in shot_lst:
         labels = ["(a)", "(b)"]
         for i, axis in enumerate((axR, axZ)):
             axis.set_ylim(-0.2, 0.2)
-            axis.set_xlim(time.min(), time.max())
+            # axis.set_xlim(time.min(), time.max())
             axis.text(
                 0.02, 0.95, labels[i],
                 transform=axis.transAxes,
