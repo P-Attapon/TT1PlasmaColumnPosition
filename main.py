@@ -152,7 +152,7 @@ for shot_no in shot_lst:
 
             axZ.plot([], [], color="k", label="Edge detection")
 
-            calibration_plane_df.to_csv(os.path.join(save_directory,'displacementCCD.csv'))
+            calibration_plane_df.to_csv(os.path.join(save_directory,f'{shot_no}CCD.csv'))
         # --------------------------------
         # Axis labels, limits, extras
         # --------------------------------
