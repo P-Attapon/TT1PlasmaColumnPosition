@@ -26,17 +26,17 @@ plt.style.use("seaborn-v0_8-dark-palette")
 #`specifies number of all shots to run calculation on 
 # !!!the `data/shot_number` directory must exist before hand!!! See README file
 #shot_lst = [int(shot_num) for shot_num in os.listdir("data") if shot_num.isnumeric()]
-shot_lst = [1641]
+shot_lst = [3970]
 
 #define what methods to use
-use_toroidal_filament_model = False              #if false the model will be skipped
+use_toroidal_filament_model = True              #if false the model will be skipped
 use_calibration_plane_transformation = True     #if false the model will be skipped
 
 #If true, then save edge detection image of each frame in result_plot/edge_detection/shot_number
 edge_detection_image = False
 
 #frames interval to skip in calibration plane (frame_step = 1) to use all frames
-frame_step = 1
+frame_step = 2
 
 #save path of final plot
 save_directory = os.path.join("result_plot","calculation_result")
@@ -44,7 +44,7 @@ save_directory = os.path.join("result_plot","calculation_result")
 #specify magnetic probes GBPXT to be used 
 #print(all_arrays) #to see all possible combinations 
 #use_probes = all_arrays # to use every existing probe combination
-use_probes = [[1,4,7,10]]
+use_probes = [[1,4,7,10], [2,4,8,10]]
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = np.inf #ms

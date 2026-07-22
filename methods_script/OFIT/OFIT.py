@@ -207,7 +207,7 @@ def calibration_plane_shift(data_directory,shot_no,frame_step,discharge_begin,di
     #path of every images in current shot
     img_dir = os.path.join(data_directory,"imgs")
 
-            # Extract frames from video if folder does not exist
+    # Extract frames from video if folder does not exist
     if not os.path.exists(img_dir) or not os.path.isdir(img_dir):
         video_path = os.path.join(data_directory, f"{shot_no}.avi")
         extract_frames_from_video(img_dir, video_path)
