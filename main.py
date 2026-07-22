@@ -29,8 +29,8 @@ plt.style.use("seaborn-v0_8-dark-palette")
 shot_lst = [1641]
 
 #define what methods to use
-use_toroidal_filament_model = False              #if false the model will be skipped
-use_calibration_plane_transformation = True     #if false the model will be skipped
+use_toroidal_filament_model = True              #if false the model will be skipped
+use_calibration_plane_transformation = False     #if false the model will be skipped
 
 #If true, then save edge detection image of each frame in result_plot/edge_detection/shot_number
 edge_detection_image = False
@@ -44,7 +44,40 @@ save_directory = os.path.join("result_plot","calculation_result")
 #specify magnetic probes GBPXT to be used 
 #print(all_arrays) #to see all possible combinations 
 #use_probes = all_arrays # to use every existing probe combination
+# default: one well-conditioned example set; with use_mprobe=True any length works,
+# e.g. use_probes = [[1,2,3,4,5,6,7,8,9,10,11,12]]
 use_probes = [[1,4,7,10]]
+
+### ADDED: M-probe weighted least-squares method configuration ##########################
+# use_mprobe = False -> original behaviour: use_probes must be 4-probe antipodal sets
+#                       and displacement comes from cal_shift (the 2D map method).
+# use_mprobe = True  -> use_probes may contain ANY number of probes (M >= 2), e.g.
+#                       use_probes = [[1,2,3,4,5,6,7,8,9,10,11,12]]
+#                       Displacement comes from the weighted linear estimator + its
+#                       own 2D correction map (methods_script/.../mprobe.py).
+use_mprobe = True
+
+# per-probe weights (curation input; probes not listed default to 1.0; 0.0 excludes)
+# example: mprobe_weights = {3: 0.0, 7: 0.5}  -> probe 3 off, probe 7 half-weight
+#
+# SET mprobe_weights = "auto" to compute weights from Layer-1 curation:
+#   w_i = 1/sigma_i^2 where sigma_i = std of the detrended pre-plasma residual,
+#   with probes failing a data-integrity gate (railed / dropout / non-stationary
+#   / no pre-plasma window) dropped to weight 0. Computed once per shot.
+mprobe_weights = "auto"
+
+# plasma current handling:
+#   False -> use the measured IP1 at each timestep (2 unknowns; recommended)
+#   True  -> fit the current as a 3rd unknown (cross-check mode)
+mprobe_fit_ip = False
+
+# per-probe gain/polarity calibration factors g_p (measured = g_p * physical);
+# signals are divided by g_p. Negative g_p corrects a polarity-flipped probe.
+# None -> all 1.0. NOTE: absolute-field methods REQUIRE these to be calibrated
+# (curation task); the values below, if any, are only as good as their source.
+# example: mprobe_gains = {11: -1.21, 12: -0.43}
+mprobe_gains = None
+#########################################################################################
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
 time_extension = np.inf #ms
@@ -63,7 +96,12 @@ for shot_no in shot_lst:
 
     if use_toroidal_filament_model:
         use_probes_str = [probe_lst_to_str(probe_set) for probe_set in use_probes]
-        displacement_df = TFM_main(shot_path = data_directory, use_probe_set = use_probes_str)
+        # ADDED: pass the M-probe configuration when enabled (None -> original path)
+        mprobe_cfg = ({"weights": mprobe_weights, "fit_ip": mprobe_fit_ip,
+                       "gains": mprobe_gains}
+                      if use_mprobe else None)
+        displacement_df = TFM_main(shot_path = data_directory, use_probe_set = use_probes_str,
+                                   mprobe = mprobe_cfg)
 
     ### calibration plane ###
     if use_calibration_plane_transformation:

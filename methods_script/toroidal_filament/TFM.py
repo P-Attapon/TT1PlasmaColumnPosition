@@ -64,7 +64,7 @@ def restrict_displacement(displacement_val:float, shift_domain:float) -> float:
     return displacement_val
 
 
-def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=2500, discharge_offset: float = 100) -> pd.DataFrame:
+def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=2500, discharge_offset: float = 100, mprobe: dict = None) -> pd.DataFrame:
     """
     Calculate plasma column position displacement with the Toroidal Filament Model
     :param shot_path: path to data directory containing
@@ -74,12 +74,53 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
                       (set number must exist in all_arrays)
     :param discharge_current: threshold for begin and end of discharge
     :param discharge_offset: constant offset value helps to determine ending of discharge
+    :param mprobe: ADDED (M-probe generalization). None -> original behaviour
+                   (4-probe antipodal sets via cal_shift / the 2D map).
+                   Otherwise a dict enabling the M-probe weighted least-squares
+                   estimator (methods_script/toroidal_filament/mprobe.py) for
+                   probe sets of ANY length M >= 2:
+                     {"weights": None or {probe_number: weight, ...},
+                      "fit_ip": False}   # True fits Ip as a 3rd unknown
+                   Probes missing from the weights dict get weight 1.0.
     :return: dataframes of centroid displacement calculated from all probe_set
              along radial and vertical directions
     """
     number_of_probe_set = len(use_probe_set)
     #determine all unique magnetic probes to use
     unique_probes = determine_unique_probes(use_probe_set)
+
+    # ADDED (M-probe): build one estimator per probe set, once per shot.
+    # Weights and Phi map are fixed for the shot; the condition number of the
+    # normal matrix is printed as a per-set health check.
+    mprobe_est = None
+    if mprobe is not None:
+        from .mprobe import MProbeEstimator
+        wdict = mprobe.get("weights")
+        wdict = {} if (wdict is None or wdict == "auto") else wdict
+        gdict = mprobe.get("gains") or {}          # ADDED: per-probe gain factors
+        fit_ip = bool(mprobe.get("fit_ip", False))
+        # ADDED (curation): if weights == "auto", compute w_i = 1/sigma_i^2 from
+        # the pre-plasma residual (Layer-1 curation) once per shot; a probe that
+        # fails the validity gate gets weight 0. Explicit weights override this.
+        auto_curation = (mprobe.get("weights") == "auto")
+        if auto_curation:
+            from .curation import compute_weights
+            all_probes = sorted({int(p) for s in use_probe_set for p in s.split()})
+            wdict, sig_dbg, valid_dbg = compute_weights(shot_path, all_probes,
+                                                        discharge_current=discharge_current)
+            print("[curation] w_i = 1/sigma_i^2 from pre-plasma residual:")
+            for p in all_probes:
+                flag = "" if valid_dbg[p] else "  <- GATED (dropped)"
+                print(f"    GBP{p:<2d} sigma={sig_dbg[p]:.3e} T  w={wdict[p]:.3e}{flag}")
+        mprobe_est = {}
+        for set_str in use_probe_set:
+            probes = list(map(int, set_str.split()))
+            weights = [float(wdict.get(p, 1.0)) for p in probes]
+            gains = [float(gdict.get(p, 1.0)) for p in probes]
+            est = MProbeEstimator(probes, weights=weights, fit_ip=fit_ip, gains=gains)
+            mprobe_est[set_str] = est
+            print(f"[mprobe] set [{set_str}] M={len(probes)} fit_ip={fit_ip} "
+                  f"condition number={est.cond:.3g}")
 
     #define all required files
     required_files = set(
@@ -158,14 +199,26 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
                 signal = [corrected_signal_dict[f"GBP{i}T"] for i in probe_set]
 
                 #shift value at previous line
+                # NOTE (2D change): with the 2D map, cal_shift no longer uses the
+                # previous-step estimate. dR_prev/dZ_prev are computed and passed
+                # only for signature compatibility; they no longer affect the result
+                # (the timestep recurrence is removed). Left in place to keep the diff
+                # minimal; they are inert.
                 dR_prev, dZ_prev = dR_sol[-1][index],dZ_sol[-1][index]
 
                 #restrict value of previous shift to be within shift_domain
                 dR_prev = restrict_displacement(dR_prev, shift_domain)
                 dZ_prev = restrict_displacement(dZ_prev, shift_domain)
 
-                #calculate dR and dZ
-                ((dR, _),(dZ, _)) = cal_shift(DxDz_method=cal_dXdZ, taylor_order=taylor_order,
+                # ADDED (M-probe): when enabled, use the weighted M-probe
+                # estimator with the measured plasma current (or fitted current
+                # if fit_ip=True). The previous-step values remain unused.
+                if mprobe_est is not None:
+                    dR, dZ, _ip_used = mprobe_est[use_probe_set[index]].shift(
+                        signal, corrected_signal_dict["IP1"])
+                else:
+                    #calculate dR and dZ (2D map: depends on current signal only)
+                    ((dR, _),(dZ, _)) = cal_shift(DxDz_method=cal_dXdZ, taylor_order=taylor_order,
                                               signal=signal,est_horizontal_shift=dR_prev,
                                               est_vertical_shift=dZ_prev,probe_number=probe_set
                                               )

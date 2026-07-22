@@ -3,6 +3,7 @@ from typing import Callable
 
 from .parameters import coil_angle_dict, base_decimal_precision, shift_domain, probe_lst_to_str
 from .DxDz import cal_newton_DxDz
+from .phi_map import get_phi          # ADDED: 2D inverse map (replaces 1D coefficient lookup)
 import pandas as pd
 import pickle
 from tqdm import tqdm
@@ -33,19 +34,59 @@ def coefficient_lookup(val, dict, max_val = shift_domain,decimal_precision = bas
 def cal_shift(DxDz_method: Callable, taylor_order:int,signal: list[float], est_horizontal_shift: float,
               est_vertical_shift: float, probe_number: list[int]) -> list[list]:
     """
-    calculate DeltaX and DeltaZ from power series of Dx & Dz based on estimation of shift value
+    calculate DeltaX and DeltaZ from the 2D inverse map Phi evaluated at the
+    CURRENT (Dx, Dz).
 
-    :param:
-    DxDz_method (Callable): method of calculation for Dx and Dz
-    taylor_order (int): order of taylor's polynomial starting from 0
-    signal (list[float]): magnetic signal at each magnetic probe in coil_angle
-    est_horizontal_shift (float): estimate shift along x/radial direction
-    est_vertical_shift (float): estimate shift along z/vertical direction
-    probe_number (list[float]): number of used probes GBPXT
+    ==== CHANGED from the original (1D -> 2D interpolation) ====================
+    Original: looked up sliced 1D Taylor coefficients keyed by the PREVIOUS
+    timestep's shift (est_horizontal_shift, est_vertical_shift) and evaluated
+    two cubics. That coupled successive timesteps and propagated error.
+
+    Now: a single bicubic-spline 2D map Phi:(Dx,Dz)->(R,Z) is evaluated at the
+    current (Dx, Dz). No dependence on the previous step.
+
+    Signature and return shape are UNCHANGED so callers need no edit.
+    est_horizontal_shift / est_vertical_shift are now UNUSED (kept only for
+    signature compatibility); taylor_order and DxDz_method are also unused
+    here (DxDz is computed with cal_newton_DxDz inside, as before).
+
+    Uncertainty: the original propagated 1D fit covariance. The 2D map has no
+    per-point covariance object, so the uncertainty slot is returned as 0.0
+    (placeholder). Downstream code reads shift[0][0]/shift[1][0] only.
+    ===========================================================================
 
     :return:
     matrix: [[x_shift, x_shift_uncertainty],
              [z_shift, z_shift_uncertainty]]
+    """
+    #look up probe angles of each probes
+    coil_angle = [coil_angle_dict[probe] for probe in probe_number]
+
+    #calculate Dx Dz (current timestep only); default to newton method if none passed
+    if DxDz_method is None:
+        DxDz_method = cal_newton_DxDz
+    Dx, Dz = DxDz_method(signal, coil_angle)
+
+    #convert probe numbers to string key and evaluate the 2D inverse map
+    probe_key = probe_lst_to_str(probe_number)
+    horizontal_shift, vertical_shift = get_phi(probe_key).evaluate(Dx, Dz)
+
+    #uncertainty not defined for the 2D map -> placeholder 0.0 (see docstring)
+    horizontal_shift_uncertainty = 0.0
+    vertical_shift_uncertainty = 0.0
+
+    return [
+        [horizontal_shift, horizontal_shift_uncertainty],
+        [vertical_shift, vertical_shift_uncertainty]
+    ]
+
+
+def cal_shift_1d(DxDz_method: Callable, taylor_order:int,signal: list[float], est_horizontal_shift: float,
+              est_vertical_shift: float, probe_number: list[int]) -> list[list]:
+    """
+    ORIGINAL 1D-interpolation cal_shift, preserved verbatim for comparison.
+    Not used by the 2D pipeline. Kept so the paper method remains runnable
+    (e.g. for validation against the 2D result).
     """
     #look up probe angles of each probes
     coil_angle = [coil_angle_dict[probe] for probe in probe_number]
@@ -114,6 +155,9 @@ def toroidal_filament_shift_progression(time_df:pd.DataFrame,signal_df:pd.DataFr
         #calculate shift for each probe arrays
         for i,s in enumerate(signal_df):
 
+            # NOTE (2D change): est_R_shift/est_Z_shift are now inert. cal_shift uses
+            # the 2D map (current Dx,Dz only); these previous-step values no longer
+            # affect the result. Kept for signature compatibility / minimal diff.
             est_R_shift, est_Z_shift = R0_arr[i][-1], Z0_arr[i][-1]
             if abs(est_R_shift) > shift_domain:
                 if est_R_shift < -shift_domain: est_R_shift = -shift_domain
