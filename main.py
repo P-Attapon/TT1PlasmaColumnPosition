@@ -26,7 +26,7 @@ plt.style.use("seaborn-v0_8-dark-palette")
 #`specifies number of all shots to run calculation on 
 # !!!the `data/shot_number` directory must exist before hand!!! See README file
 #shot_lst = [int(shot_num) for shot_num in os.listdir("data") if shot_num.isnumeric()]
-shot_lst = [3970]
+shot_lst = [4384]
 
 #define what methods to use
 use_toroidal_filament_model = True              #if false the model will be skipped
