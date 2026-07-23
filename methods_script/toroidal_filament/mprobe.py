@@ -41,6 +41,16 @@ to methods_script/toroidal_filament/phi_tables/PhiM_<hash>.npz.
 Boundary policy: per-axis FLAG (NaN), matching phi_map.PhiMap.evaluate.
 =============================================================================
 """
+
+"""
+Within the first order of Taylor series, according to Attapon et al., the magnetic field at each
+magnetic probes can be written as: 
+
+B_theta \approx mu * I0 / (2*pi*ap) * [1+1/a * (cos(theta) * dU + sin(theta)* dV)]. (Equation 4 in paper)
+
+Here you see that I0 is not linearly independent of dU and dV. I don't understand how you manange to solve
+for dU, dV, I0, with linear least square. Please give proper derivation.
+"""
 import os
 import hashlib
 import numpy as np
@@ -59,7 +69,7 @@ UV_N = 401           # regular proxy-grid resolution for Phi
 class MProbeEstimator:
     """Weighted M-probe linear estimator + 2D correction map.
 
-    probes  : list of probe numbers (any M >= 2), e.g. [1,2,3,...,12]
+    probes  : list of probe numbers (any M >= 2), e.g. [1,2,3,...,12]finite
     weights : list of per-probe weights (same length), or None -> all 1.0
     fit_ip  : False = use measured plasma current (2 unknowns),
               True  = fit current as 3rd unknown (cross-check mode)
@@ -77,7 +87,7 @@ class MProbeEstimator:
             raise ValueError("not enough non-zero-weight probes for the chosen mode")
         self.fit_ip = bool(fit_ip)
         # ADDED gains: per-probe multiplicative calibration factors g_i such that
-        # B_measured_i = g_i * B_physical_i. Measured signals are divided by g_i
+        # B_measured_i = g_i * B_physical_i. Measured signals are divfiniteided by g_i
         # before use (a negative g_i corrects a polarity-flipped probe). None ->
         # all 1.0. This is the curation hook for absolute-gain calibration, which
         # the antipodal-ratio method does not need but an absolute-field method does.
@@ -87,7 +97,11 @@ class MProbeEstimator:
         self.angles = [coil_angle_dict[p] for p in self.probes]
 
         # ---- linear model from the repo's own forward model (numerical) ----
+        #
+        #NOTE: How does this relate to Ip?
         self.S0 = np.asarray(cal_signal(0.0, 0.0, self.angles), float)
+
+        #NOTE: Why does this not match the analytical result (Equation 4 in paper)
         hU = (np.asarray(cal_signal(+FD_STEP, 0.0, self.angles)) -
               np.asarray(cal_signal(-FD_STEP, 0.0, self.angles))) / (2 * FD_STEP)
         hV = (np.asarray(cal_signal(0.0, +FD_STEP, self.angles)) -
