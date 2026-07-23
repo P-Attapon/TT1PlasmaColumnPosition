@@ -56,8 +56,86 @@ switch away.
 - `main.py`
   Added a config block next to use_probes: `use_mprobe`, `mprobe_weights`
   (dict, None, or "auto" for curation weights), `mprobe_fit_ip`,
-  `mprobe_gains` (all VS Code-editable), passed to TFM_main. Default set to
-  mprobe_weights = "auto".
+  `mprobe_gains`, plus curation tuning `mprobe_weight_power`,
+  `mprobe_struct_ratio`, `mprobe_rail_frac`, `mprobe_min_samples`
+  (all VS Code-editable), passed to TFM_main. Default mprobe_weights = "auto".
+
+## Later revisions (after first validation)
+
+1. Stationarity gate made ONE-SIDED and threshold raised 3.0 -> 6.0.
+   Rationale: only GROWING noise is a fault. The pre-plasma window ends just
+   before breakdown, so a probe whose noise is rising is degrading into the
+   phase that matters; noise that SHRINKS is a settling transient already over
+   before plasma starts, and should not be penalised. The old symmetric test
+   at 3.0 dropped GBP2 (ratio 3.52) and GBP5 (3.64) - but the whole 12-probe
+   population on shot 1641 spans only 1.29-3.64, so 3.0 was cutting into the
+   normal population rather than isolating faults. At 6.0 all 12 probes pass
+   and GBP2 (the quietest channel) is restored, improving the synthetic
+   accuracy gain of ALL12 over best-4 from 1.20x to 1.85x in R.
+
+2. Weight exponent made adjustable (WEIGHT_POWER / mprobe_weight_power),
+   DEFAULT KEPT AT 2.0. w = 1/sigma^2 is the maximum-likelihood weighting for
+   independent zero-mean Gaussian errors and the only exponent for which
+   Cov = (H^T W H)^-1 is a genuine position covariance. Documented guidance:
+   leave at 2.0 unless there is strong evidence the dominant error is
+   non-random. Power sweep on shot 1641 (1.0/1.5/2.0/2.5): pure-noise accuracy
+   is flat and best at 2.0 (0.436 mm R); an injected per-probe bias favoured
+   1.5 (0.570 vs 0.742 mm R); real-data cross-set spread improved monotonically
+   with power (66 -> 33 mm) but that is partly sets converging on shared
+   probes, not evidence of accuracy. A leave-one-out test found 1.5 was NOT
+   more robust (worst-probe sensitivity 25.7 mm vs 22.0 mm at power 2), so the
+   theoretical case for a lower exponent is not backed by measurement.
+
+3. Gain hypothesis RETRACTED. The GBP*T channels are the INTEGRATED Mirnov
+   probes, reported in Tesla, so per-probe gain is already applied in the data.
+   (A separate non-integrated set is reported in Volts and would need gains;
+   this workstream does not use it.) The `mprobe_gains` hook remains but should
+   be left at None for this data. The probe-to-probe inconsistency therefore
+   has no gain explanation and remains unattributed - candidates are vessel
+   eddy currents, unmodelled feedback-coil pickup, and filament-model
+   inadequacy, none yet distinguished.
+
+## Later revision: analytic Eq. 4 coefficients (replaces finite differences)
+
+The linear-model coefficients S0, hU, hV in mprobe.py are now the closed-form
+Eq. 4 (paper) cylinder coefficients:
+    S0_i = mu*I/(2*pi*R),  hU_i = mu*I*cos(theta_i)/(2*pi*R^2),
+    hV_i = mu*I*sin(theta_i)/(2*pi*R^2)
+replacing the previous central finite differences of cal_signal. Motivation:
+remove finite-difference truncation error and use the paper's analytic form.
+
+Note this is a genuinely different (cylindrical / infinite-R0) linear model,
+not merely an exact form of the previous one - the FD version differentiated
+the exact toroidal forward model, which does not equal Eq. 4 probe-by-probe.
+Consequence measured: end-to-end accuracy is essentially unchanged because the
+Phi map absorbs the coordinate choice. Synthetic accuracy at measured noise
+(all-12 vs best-4):
+    FD coeffs : all-12 R RMS 0.436 mm, Z 0.500 mm  (improvement 1.85x / 1.40x)
+    Eq4 coeffs: all-12 R RMS 0.464 mm, Z 0.519 mm  (improvement 1.92x / 1.35x)
+Round-trip recovery is exact for both (<1e-4 m). Eq4 has a slightly higher
+condition number (4.2 vs 3.5) and ~6% worse noise-limited accuracy, both
+negligible against the systematic error that dominates real shots.
+
+Clarifying comments were also added in mprobe.py explaining (a) how S0/hU/hV
+relate to Ip via kappa = Ip/I_PARAM, and (b) why I0 can be fit by linear least
+squares despite Eq. 4 being bilinear (solve for the products (I0, I0*dU,
+I0*dV), then divide).
+
+## Open finding: systematic inconsistency dominates
+
+Measured on shot 1641, flat-top, with the final configuration:
+  - in-plasma fit residual is 6-24x the pre-plasma noise for every probe set;
+  - the three curation-valid 4-probe sets disagree by ~42 mm (R) and ~76 mm (Z),
+    against ~1 mm predicted from noise alone - a factor ~40;
+  - leave-one-out on the 12-probe fit moves the answer by a median 3 mm and up
+    to 22-26 mm, where noise alone predicts ~0.5 mm;
+  - sensitivity does not track weight (GBP7 carries 3% of the weight but moves
+    the answer 15-22 mm), so it is geometry and probe disagreement, not
+    weighting, that dominates.
+Consequence: the M-probe weighted method improves the NOISE-limited part of the
+error (1.4-1.85x better than best-4 in synthetic tests at measured sigma), but
+that part is currently ~2% of the total. The systematic part is untouched by
+any weighting scheme and is the limiting factor on real shots.
 
 ## Files UNCHANGED
 

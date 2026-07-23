@@ -41,27 +41,16 @@ to methods_script/toroidal_filament/phi_tables/PhiM_<hash>.npz.
 Boundary policy: per-axis FLAG (NaN), matching phi_map.PhiMap.evaluate.
 =============================================================================
 """
-
-"""
-Within the first order of Taylor series, according to Attapon et al., the magnetic field at each
-magnetic probes can be written as: 
-
-B_theta \approx mu * I0 / (2*pi*ap) * [1+1/a * (cos(theta) * dU + sin(theta)* dV)]. (Equation 4 in paper)
-
-Here you see that I0 is not linearly independent of dU and dV. I don't understand how you manange to solve
-for dU, dV, I0, with linear least square. Please give proper derivation.
-"""
 import os
 import hashlib
 import numpy as np
 
-from .parameters import coil_angle_dict, shift_domain, I as I_PARAM
+from .parameters import coil_angle_dict, shift_domain, I as I_PARAM, R, mu
 from .signal_strength import cal_signal
 
 _HERE = os.path.dirname(__file__)
 PHI_DIR = os.path.join(_HERE, "phi_tables")
 
-FD_STEP = 1e-4       # m, finite-difference step for the linear model
 PHYS_STEP = 0.001    # m, physical grid step for Phi construction (paper convention)
 UV_N = 401           # regular proxy-grid resolution for Phi
 
@@ -69,7 +58,7 @@ UV_N = 401           # regular proxy-grid resolution for Phi
 class MProbeEstimator:
     """Weighted M-probe linear estimator + 2D correction map.
 
-    probes  : list of probe numbers (any M >= 2), e.g. [1,2,3,...,12]finite
+    probes  : list of probe numbers (any M >= 2), e.g. [1,2,3,...,12]
     weights : list of per-probe weights (same length), or None -> all 1.0
     fit_ip  : False = use measured plasma current (2 unknowns),
               True  = fit current as 3rd unknown (cross-check mode)
@@ -87,7 +76,7 @@ class MProbeEstimator:
             raise ValueError("not enough non-zero-weight probes for the chosen mode")
         self.fit_ip = bool(fit_ip)
         # ADDED gains: per-probe multiplicative calibration factors g_i such that
-        # B_measured_i = g_i * B_physical_i. Measured signals are divfiniteided by g_i
+        # B_measured_i = g_i * B_physical_i. Measured signals are divided by g_i
         # before use (a negative g_i corrects a polarity-flipped probe). None ->
         # all 1.0. This is the curation hook for absolute-gain calibration, which
         # the antipodal-ratio method does not need but an absolute-field method does.
@@ -96,16 +85,31 @@ class MProbeEstimator:
             raise ValueError("gains must match probes length and be non-zero")
         self.angles = [coil_angle_dict[p] for p in self.probes]
 
-        # ---- linear model from the repo's own forward model (numerical) ----
+        # ---- linear model: analytic first-order coefficients (Eq. 4 of the paper) ----
+        # B_theta ~= (mu*I)/(2*pi*a_p) * [ 1 + (cos(theta)*dU + sin(theta)*dV)/a_p ],
+        # with the probe circle radius a_p = R. Reading off per probe i:
+        #   S0_i = mu*I/(2*pi*R)                     centred-plasma field
+        #   hU_i = mu*I*cos(theta_i)/(2*pi*R^2)      sensitivity to cylindrical dU
+        #   hV_i = mu*I*sin(theta_i)/(2*pi*R^2)      sensitivity to cylindrical dV
+        # Closed form, so no finite-difference truncation error. These are the
+        # straight-line (infinite-R0) cylinder coefficients; (dU, dV) is therefore
+        # the cylindrical proxy displacement, and Phi maps it to the true (dR, dZ).
         #
-        #NOTE: How does this relate to Ip?
-        self.S0 = np.asarray(cal_signal(0.0, 0.0, self.angles), float)
-
-        #NOTE: Why does this not match the analytical result (Equation 4 in paper)
-        hU = (np.asarray(cal_signal(+FD_STEP, 0.0, self.angles)) -
-              np.asarray(cal_signal(-FD_STEP, 0.0, self.angles))) / (2 * FD_STEP)
-        hV = (np.asarray(cal_signal(0.0, +FD_STEP, self.angles)) -
-              np.asarray(cal_signal(0.0, -FD_STEP, self.angles))) / (2 * FD_STEP)
+        # Current handling: all three coefficients carry the model current I
+        # (=I_PARAM). They are NOT re-derived per timestep. The time-varying measured
+        # current enters only through kappa = Ip/I_PARAM at runtime, which rescales the
+        # measurement onto the model-current footing before S0 is subtracted. This is
+        # why S0/hU/hV can be built once even though Ip = Ip(t).
+        #
+        # Why I0 can be fit by *linear* least squares despite Eq. 4 being bilinear in
+        # (I0, dU, dV): we do not solve for (I0, dU, dV). We solve the linear system
+        # for the products x = (I0, I0*dU, I0*dV) [columns S0, hU, hV], which is linear,
+        # then recover dU = x2/x1, dV = x3/x1, I0 = x1 by division afterwards.
+        theta = np.asarray(self.angles, float)
+        pref = mu * I_PARAM / (2.0 * np.pi * R)
+        self.S0 = pref * np.ones(len(theta))
+        hU = pref * np.cos(theta) / R
+        hV = pref * np.sin(theta) / R
         self.H2 = np.column_stack([hU, hV])                    # M x 2 (measured-Ip mode)
         self.H3 = np.column_stack([self.S0, hU, hV])           # M x 3 (fit-Ip mode)
 

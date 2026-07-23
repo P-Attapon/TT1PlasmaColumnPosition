@@ -106,9 +106,14 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
         if auto_curation:
             from .curation import compute_weights
             all_probes = sorted({int(p) for s in use_probe_set for p in s.split()})
-            wdict, sig_dbg, valid_dbg = compute_weights(shot_path, all_probes,
-                                                        discharge_current=discharge_current)
-            print("[curation] w_i = 1/sigma_i^2 from pre-plasma residual:")
+            wdict, sig_dbg, valid_dbg = compute_weights(
+                shot_path, all_probes, discharge_current=discharge_current,
+                power=mprobe.get("weight_power"),
+                struct_ratio=mprobe.get("struct_ratio"),
+                rail_frac=mprobe.get("rail_frac"),
+                min_samples=mprobe.get("min_samples"))
+            print("[curation] w_i = 1/sigma_i^%s from pre-plasma residual:"
+                  % (mprobe.get("weight_power") or "2.0"))
             for p in all_probes:
                 flag = "" if valid_dbg[p] else "  <- GATED (dropped)"
                 print(f"    GBP{p:<2d} sigma={sig_dbg[p]:.3e} T  w={wdict[p]:.3e}{flag}")

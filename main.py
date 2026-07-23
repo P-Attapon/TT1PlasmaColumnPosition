@@ -77,6 +77,27 @@ mprobe_fit_ip = False
 # (curation task); the values below, if any, are only as good as their source.
 # example: mprobe_gains = {11: -1.21, 12: -0.43}
 mprobe_gains = None
+
+# curation tuning (only used when mprobe_weights = "auto")
+# weight exponent: w_i = 1/sigma_i**power. LEAVE AT 2.0 unless there is strong
+# evidence that the dominant probe error is non-random (systematic/correlated)
+# rather than random noise. 2.0 is the maximum-likelihood value for independent
+# Gaussian errors and the only exponent for which the covariance output is a
+# genuine position variance. See methods_script/.../curation.py for details.
+mprobe_weight_power = 2.0
+
+# validity-gate thresholds (data-integrity only; sigma does the grading).
+#   struct_ratio: drop a probe if the second half of its pre-plasma residual is
+#                 this many times noisier than the first half. ONE-SIDED:
+#                 growing noise is a fault, shrinking noise is a settling
+#                 transient and is not penalised. On shot 1641 all 12 probes
+#                 fall in 1.3-3.6, so 6.0 only catches egregious cases.
+#   rail_frac   : drop if this fraction of pre-plasma samples sit pinned at the
+#                 channel min/max (saturation / stuck channel).
+#   min_samples : minimum usable pre-plasma samples for sigma to be meaningful.
+mprobe_struct_ratio = 6.0
+mprobe_rail_frac = 0.01
+mprobe_min_samples = 50
 #########################################################################################
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
@@ -98,7 +119,11 @@ for shot_no in shot_lst:
         use_probes_str = [probe_lst_to_str(probe_set) for probe_set in use_probes]
         # ADDED: pass the M-probe configuration when enabled (None -> original path)
         mprobe_cfg = ({"weights": mprobe_weights, "fit_ip": mprobe_fit_ip,
-                       "gains": mprobe_gains}
+                       "gains": mprobe_gains,
+                       "weight_power": mprobe_weight_power,
+                       "struct_ratio": mprobe_struct_ratio,
+                       "rail_frac": mprobe_rail_frac,
+                       "min_samples": mprobe_min_samples}
                       if use_mprobe else None)
         displacement_df = TFM_main(shot_path = data_directory, use_probe_set = use_probes_str,
                                    mprobe = mprobe_cfg)
