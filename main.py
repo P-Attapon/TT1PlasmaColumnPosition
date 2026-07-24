@@ -46,7 +46,7 @@ save_directory = os.path.join("result_plot","calculation_result")
 #use_probes = all_arrays # to use every existing probe combination
 # default: one well-conditioned example set; with use_mprobe=True any length works,
 # e.g. use_probes = [[1,2,3,4,5,6,7,8,9,10,11,12]]
-use_probes = [[1,4,7,10]]
+use_probes = [[1,2,3,4,5,6,7,8,9,10,11,12]]
 
 ### ADDED: M-probe weighted least-squares method configuration ##########################
 # use_mprobe = False -> original behaviour: use_probes must be 4-probe antipodal sets
@@ -69,7 +69,7 @@ mprobe_weights = "auto"
 # plasma current handling:
 #   False -> use the measured IP1 at each timestep (2 unknowns; recommended)
 #   True  -> fit the current as a 3rd unknown (cross-check mode)
-mprobe_fit_ip = False
+mprobe_fit_ip = True
 
 # per-probe gain/polarity calibration factors g_p (measured = g_p * physical);
 # signals are divided by g_p. Negative g_p corrects a polarity-flipped probe.
@@ -98,6 +98,18 @@ mprobe_weight_power = 2.0
 mprobe_struct_ratio = 6.0
 mprobe_rail_frac = 0.01
 mprobe_min_samples = 50
+
+# Phi-map grid resolution (only used when use_mprobe = True).
+#   phys_step: physical (dR,dZ) sweep step in metres for building the Phi map.
+#              This single value sets BOTH grids - the (dU,dV) lookup grid
+#              resolution is derived from it so the two stay consistent.
+#              Accuracy is flat vs this on real data (grid error << noise floor);
+#              1 mm is the paper convention, 2 mm builds ~4x faster with
+#              identical real-data accuracy. Smaller = finer but slower to build.
+#   uv_oversample: nudges the lookup grid finer than the sweep count (>1) for
+#              unevenly-sampled edge regions; leave at 1.0 to keep grids matched.
+mprobe_phys_step = 0.001
+mprobe_uv_oversample = 1.0
 #########################################################################################
 
 #extended time from discharge begin. (For full discharge duration use np.inf)
@@ -123,7 +135,9 @@ for shot_no in shot_lst:
                        "weight_power": mprobe_weight_power,
                        "struct_ratio": mprobe_struct_ratio,
                        "rail_frac": mprobe_rail_frac,
-                       "min_samples": mprobe_min_samples}
+                       "min_samples": mprobe_min_samples,
+                       "phys_step": mprobe_phys_step,
+                       "uv_oversample": mprobe_uv_oversample}
                       if use_mprobe else None)
         displacement_df = TFM_main(shot_path = data_directory, use_probe_set = use_probes_str,
                                    mprobe = mprobe_cfg)
@@ -140,10 +154,20 @@ for shot_no in shot_lst:
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     def error_line_overlay(ax, t, displacement, probe_set, direction, color, step=200):
-        """Overlay scalar error bars at downsampled points."""
+        """Overlay scalar error bars at downsampled points.
+
+        error_dict holds the paper's per-set simulation error, keyed only by the
+        15 antipodal 4-probe sets. For M-probe sets (any other length/combination)
+        there is no tabulated value, so the band is simply skipped rather than
+        crashing. (A genuine M-probe uncertainty is available as the estimator
+        covariance, but it lives in proxy space and would need mapping through Phi
+        to become an R/Z error bar - not attempted here.)
+        """
+        err_value = error_dict.get(probe_set + direction)
+        if err_value is None:
+            return
         t_err = t[::step]
         dis_err = displacement[::step]
-        err_value = error_dict[probe_set + direction]
 
         ax.errorbar(
             t_err,
@@ -172,6 +196,8 @@ for shot_no in shot_lst:
 
             for col in displacement_df.columns:
                 if col in ("Time (ms)", "IP"):
+                    continue
+                if col.endswith("Ifit"):     # fitted-current columns handled separately
                     continue
 
                 disp = displacement_df[col]
@@ -251,3 +277,53 @@ for shot_no in shot_lst:
         print(f"Calculation result saved to: {save_path}")
 
         plt.close()
+
+        # -------------------------------
+        # Fitted plasma current (only present when mprobe fit_ip=True)
+        # -------------------------------
+        if use_toroidal_filament_model:
+            ifit_cols = [c for c in displacement_df.columns if c.endswith("Ifit")]
+            if ifit_cols:
+                t_ms = displacement_df["Time (ms)"]
+                ip_meas_A = displacement_df["IP (A)"].to_numpy()
+                ip_meas = ip_meas_A / 1e3   # kA
+                figI, axI = plt.subplots(figsize=(8, 4))
+                axI.plot(t_ms, ip_meas, 'k-', lw=2, label="measured $I_p$ (IP1)")
+
+                # relative RMS error between fitted I0 and measured Ip, normalised
+                # by RMS(Ip). RMS(Ip) is always positive and dominated by the
+                # high-current part of the discharge, so no current gate is needed
+                # (near-zero startup/shutdown samples contribute negligibly).
+                # Only finite fitted values are included. Per fitted-current column.
+                err_lines = []
+                for c in ifit_cols:
+                    ifit_A = displacement_df[c].to_numpy()
+                    axI.plot(t_ms, ifit_A / 1e3, '--', lw=1.4,
+                             label=f"fitted $I_0$ [{c[:-5]}]")
+                    m = np.isfinite(ifit_A)
+                    if m.any():
+                        rms_diff = np.sqrt(np.mean((ifit_A[m] - ip_meas_A[m]) ** 2))
+                        rms_ip = np.sqrt(np.mean(ip_meas_A[m] ** 2))
+                        rel = rms_diff / rms_ip if rms_ip > 0 else float("nan")
+                        err_lines.append(f"[{c[:-5]}]  rel. RMS err = {rel*100:.1f}%")
+
+                axI.set_xlabel("time [ms]"); axI.set_ylabel("current [kA]")
+                axI.set_title(f"Shot {shot_no}: fitted $I_0$ vs measured $I_p$")
+                leg = axI.legend(fontsize=8, loc="upper right")
+                axI.grid(alpha=0.3)
+
+                # annotation just below the legend box (relative RMS error,
+                # normalised by RMS(Ip))
+                if err_lines:
+                    txt = "rel. RMS error (norm. RMS $I_p$):\n" + "\n".join(err_lines)
+                    axI.text(0.985, 0.74, txt, transform=axI.transAxes,
+                             fontsize=7.5, ha="right", va="top",
+                             bbox=dict(boxstyle="round", fc="white", ec="0.7", alpha=0.9))
+
+                figI.tight_layout()
+                ip_path = os.path.join(save_directory, f"{shot_no}_Ifit.png")
+                figI.savefig(ip_path, dpi=200, bbox_inches='tight')
+                print(f"Fitted-current plot saved to: {ip_path}")
+                for line in err_lines:
+                    print(f"    I0 vs Ip {line}")
+                plt.close(figI)

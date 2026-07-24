@@ -122,7 +122,9 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
             probes = list(map(int, set_str.split()))
             weights = [float(wdict.get(p, 1.0)) for p in probes]
             gains = [float(gdict.get(p, 1.0)) for p in probes]
-            est = MProbeEstimator(probes, weights=weights, fit_ip=fit_ip, gains=gains)
+            est = MProbeEstimator(probes, weights=weights, fit_ip=fit_ip, gains=gains,
+                                  phys_step=mprobe.get("phys_step"),
+                                  uv_oversample=mprobe.get("uv_oversample"))
             mprobe_est[set_str] = est
             print(f"[mprobe] set [{set_str}] M={len(probes)} fit_ip={fit_ip} "
                   f"condition number={est.cond:.3g}")
@@ -149,6 +151,9 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
         #create empty lists to store solution of all probes
         dR_sol = [[0]*(number_of_probe_set)]
         dZ_sol = [[0]*number_of_probe_set]
+        # ADDED: collect fitted plasma current per set (only populated when the
+        # M-probe estimator runs with fit_ip=True; stays empty otherwise).
+        ip_sol = [[0]*number_of_probe_set]
 
         time_arr = [] #list to store time of each line
         IP_arr = [] #list to store plasma current of each line
@@ -196,6 +201,7 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
             #calculation result from current line of data
             dR_line_sol = []
             dZ_line_sol = []
+            ip_line_sol = []
 
             for index in range(number_of_probe_set):
 
@@ -221,32 +227,42 @@ def TFM_main(shot_path: str,use_probe_set: list[str],discharge_current:float=250
                 if mprobe_est is not None:
                     dR, dZ, _ip_used = mprobe_est[use_probe_set[index]].shift(
                         signal, corrected_signal_dict["IP1"])
+                    ip_line_sol.append(_ip_used)
                 else:
                     #calculate dR and dZ (2D map: depends on current signal only)
                     ((dR, _),(dZ, _)) = cal_shift(DxDz_method=cal_dXdZ, taylor_order=taylor_order,
                                               signal=signal,est_horizontal_shift=dR_prev,
                                               est_vertical_shift=dZ_prev,probe_number=probe_set
                                               )
-                
+                    ip_line_sol.append(float("nan"))
+
                 dR_line_sol.append(dR)
                 dZ_line_sol.append(dZ)
-            
-            #add line result to final result
 
+            #add line result to final result
             dR_sol.append(dR_line_sol)
             dZ_sol.append(dZ_line_sol)
+            ip_sol.append(ip_line_sol)
             #########################################################
 
     #remove initial guess of 0 displacement (for matching dimension with time and plasma current)
     dR_sol.pop(0)
     dZ_sol.pop(0)
+    ip_sol.pop(0)
 
     time_series = pd.Series(data = time_arr, name = "Time (ms)")
     IP_series = pd.Series(data = IP_arr, name = "IP (A)")
     dR_df = pd.DataFrame(data = dR_sol, columns=[probe_set + " R" for probe_set in use_probe_set])
     dZ_df = pd.DataFrame(data = dZ_sol, columns=[probe_set + " Z" for probe_set in use_probe_set])
 
-    return pd.concat([time_series, IP_series, dR_df, dZ_df], axis = 1)
+    out = [time_series, IP_series, dR_df, dZ_df]
+    # ADDED: expose fitted plasma current columns when the M-probe fit_ip mode ran.
+    # Columns named "<set> Ifit"; in measured-Ip or non-mprobe mode these are NaN.
+    if mprobe is not None and bool(mprobe.get("fit_ip", False)):
+        ip_df = pd.DataFrame(data = ip_sol, columns=[probe_set + " Ifit" for probe_set in use_probe_set])
+        out.append(ip_df)
+
+    return pd.concat(out, axis = 1)
 
 if __name__ == "__main__":
     use_probes = ["1 4 7 10", "2 4 8 10"]

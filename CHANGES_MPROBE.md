@@ -121,6 +121,52 @@ relate to Ip via kappa = Ip/I_PARAM, and (b) why I0 can be fit by linear least
 squares despite Eq. 4 being bilinear (solve for the products (I0, I0*dU,
 I0*dV), then divide).
 
+## Later revision: single grid-resolution parameter
+
+The (dU,dV) lookup-grid resolution is no longer an independent constant (was
+UV_N = 401). It is now DERIVED from PHYS_STEP via _uv_n(), so one parameter
+sets both grids and they stay consistent. Rationale: the scattered (dU,dV)
+points number exactly (2*shift_domain/PHYS_STEP + 1) per axis; a lookup grid
+finer than that adds nodes but no information (it only interpolates between the
+same points) and measurably slows the runtime spline evaluation (median eval
+~4.0 us at 101 -> ~6.6 us at 1601 per axis, from cache pressure on the larger
+coefficient table). So UV_N is tied to the sweep count; UV_OVERSAMPLE (default
+1.0) allows a small nudge if the unevenly-sampled edge regions ever need it.
+PHYS_STEP is now part of the Phi cache hash, so changing resolution rebuilds
+the table instead of reusing a stale one. Default effective grid is now 201
+per axis (matched to the 1 mm sweep), down from 401; grid-resolution sweep
+showed no accuracy change to 4 decimals (synthetic RMS 0.4639/0.5189 mm across
+all resolutions - grid error is ~1e-4 mm, far below the ~0.5 mm noise floor).
+FD_STEP is retained as an unused reference constant (coefficients are analytic).
+
+## Bugfix: error-bar overlay crashed on M-probe sets
+
+main.py error_line_overlay looked up error_dict[probe_set + direction], but
+error_dict only has the 15 antipodal 4-probe keys, so any M-probe set raised
+KeyError after the (successful) displacement computation. Fixed with a
+dict.get() guard that skips the static error band for sets not in error_dict.
+The paper's tabulated per-set error does not apply to M-probe sets anyway; a
+genuine M-probe uncertainty (estimator covariance) lives in proxy space and
+would need mapping through Phi to plot as an R/Z band - noted, not implemented.
+
+## Bugfix: fitted I0 sign (fit_ip=True)
+
+The analytic Eq. 4 coefficients were coded with the paper's written sign
+(prefactor +mu*I/(2*pi*R)), but cal_signal - the forward model the rest of the
+code uses - returns a NEGATIVE tangential field for positive plasma current
+(its -b_r*sin + b_z*cos projection). The mismatch made the fitted I0 come out
+with the wrong sign: a clean mirror image of measured Ip (correct magnitude,
+negative sign). Displacement (dR,dZ) was unaffected because it comes from the
+ratios x2/x1, x3/x1, in which the sign cancels - which is why only the reported
+current was upside down. Fixed by negating the coefficient prefactor to match
+cal_signal's convention. Verified: a known +Ip synthetic case now returns
+I0/Ip = +1.000 with dR,dZ exact; real shot 1641 (12 probes) gives fitted/
+measured median +1.076 (positive, right-side up). The FD-coefficient version
+never had this because it differentiated cal_signal directly and inherited its
+sign automatically. NOTE: the previously reported ~8-18% magnitude offset
+between fitted I0 and measured Ip stands - that is a real systematic, separate
+from this sign fix.
+
 ## Open finding: systematic inconsistency dominates
 
 Measured on shot 1641, flat-top, with the final configuration:
