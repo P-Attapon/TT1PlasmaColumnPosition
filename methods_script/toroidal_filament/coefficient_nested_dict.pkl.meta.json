@@ -1,0 +1,7 @@
+{
+  "fm_key": "3d86c9c38f",
+  "model": "shift_domain=0.14 m, R0=0.65 m, R=0.321 m, mu=1.25664e-06, I=100000 A, angles={1:-0.043659, 2:0.476841, 3:1.043793, 4:1.529534, 5:2.060159, 6:2.591323, 7:3.121215, 8:-2.635403, 9:-2.112861, 10:-1.593869, 11:-1.066260, 12:-0.561007}",
+  "taylor_order": null,
+  "decimal_precision": null,
+  "note": "stamped retroactively by stamp_model_caches.py; order/precision unknown"
+}

@@ -1,0 +1,19 @@
+# Runtime dependencies actually imported by this repository.
+#
+# The previous requirement.txt was a full `pip freeze` of one developer machine:
+# it listed desktop packages (PyGObject, cupshelpers, udiskie, VapourSynth, ...)
+# and omitted every package the code actually imports. Installing it would not
+# have produced a working environment.
+#
+# Python 3.10+ recommended.
+
+numpy>=1.24
+scipy>=1.10
+pandas>=2.0
+matplotlib>=3.7
+tqdm>=4.65
+
+# OFIT (optical boundary reconstruction) only. Not needed for the toroidal
+# filament model, position.c, or adaptive selection.
+opencv-python>=4.8
+scikit-learn>=1.3

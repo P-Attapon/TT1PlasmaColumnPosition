@@ -1,0 +1,30 @@
+# --- regenerable caches -- all keyed on forward_model_key(); safe to delete ---
+methods_script/toroidal_filament/phi_tables/
+methods_script/toroidal_filament/hull_tables/
+methods_script/toroidal_filament/rt_fields/
+methods_script/toroidal_filament/weights_store/
+
+# --- experimental input data (not distributed with the code) ---
+data/
+
+# --- generated figures -------------------------------------------------------
+# result_plot/comparison/ is deliberately tracked: those twelve PNGs are the
+# reference figures referred to in CHANGES.md. Everything else here is output.
+result_plot/*
+!result_plot/comparison/
+result_plot/comparison/*
+!result_plot/comparison/*_compare.png
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# --- editors / OS ------------------------------------------------------------
+.idea/
+.vscode/
+.DS_Store
+data/
