@@ -2,12 +2,20 @@
 
 Python implementation for calculating the plasma column position in Thailand
 Tokamak-1 (TT-1), as a foundation for future real-time negative-feedback
-control. Two independent methods are implemented:
+control. The core is the **Toroidal Filament Model (TFM)** — it fits the
+plasma's magnetic signature (from the Mirnov probes, `GBP*T.txt`) to a 2D
+displacement `(dR, dZ)`. Linear time complexity; the method with the actual
+real-time-control potential. It is recovered two ways:
 
-- **Toroidal Filament Model (TFM)** — fits the plasma's magnetic signature
-  (from the Mirnov probes, `GBP*T.txt`) to a 2D displacement `(dR, dZ)`, using
-  a precomputed inverse map. Linear time complexity; the method with the
-  actual real-time-control potential.
+- **Φ-map inversion** — the production path: the linear proxy `(dU, dV)` mapped
+  to `(dR, dZ)` through a precomputed inverse map.
+- **Biot–Savart** — `(dR, dZ)` fitted directly to the probe signals by nonlinear
+  least squares, with no proxy and no map. It shares the filament ansatz and
+  calibration with the Φ-map path, so the gap between the two isolates the
+  **approximation error of the Φ map** (see `compare_methods.py`).
+
+A second, physically independent method is also implemented:
+
 - **OFIT (Optical Boundary Reconstruction)** — detects the plasma edge from
   camera video and reconstructs a position from image geometry.
 
@@ -20,10 +28,14 @@ filament method against:
   (`<shot>_pred.txt`), used only as an independent sanity check, never as a
   ground truth (see `compare_methods.py` and `CHANGES.md` for why).
 
-Theoretical background: `ANALYSIS OF PLASMA POSITION IN THAILAND TOKAMAK-1
-USING TOROIDAL FILAMENT MODEL.pdf` (also in MUIC's library database).
-**For the history of changes made on top of the original paper/repo, and the
-reasoning behind them, see `CHANGES.md`.** This README covers how to *use*
+`compare_methods.py` overlays all four (filament Φ-map, Biot–Savart, position.c,
+AI camera) on shared axes for one shot — see Section 3c.
+
+Theoretical background is the thesis *Analysis of Plasma Position in Thailand
+Tokamak-1 Using Toroidal Filament Model* (Attapon, MUIC — available through
+MUIC's library database and the upstream repository; it is not bundled in this
+tree). **For the history of changes made on top of the original paper/repo, and
+the reasoning behind them, see `CHANGES.md`.** This README covers how to *use*
 the code as it stands today.
 
 ---
@@ -533,10 +545,11 @@ licence constrains what may be applied to the derived work. Check the upstream
 repository's terms first; if it carries no licence either, the original
 author's permission is needed before publication.
 
-`ANALYSIS OF PLASMA POSITION IN THAILAND TOKAMAK-1 USING TOROIDAL FILAMENT
-MODEL.pdf` (7.8 MB) is redistributed here for convenience and is also in
-MUIC's library database. Confirm redistribution is permitted, or replace the
-file with a citation and a link.
+The background thesis (*Analysis of Plasma Position in Thailand Tokamak-1 Using
+Toroidal Filament Model*, Attapon) is **not** bundled in this repository. It is
+available through MUIC's library database and the upstream repository; cite it
+rather than redistributing the file, and if you do add it, confirm
+redistribution is permitted first.
 
 The experimental data under `data/` is not distributed with the code, and
 `.gitignore` excludes it. Confirm the shot data is cleared for release before
