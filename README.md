@@ -141,17 +141,163 @@ python compare_methods.py 1641
 python compare_methods.py 1641 1643
 ```
 
-A shot number is required; run with no argument and the script prints usage and
-exits rather than attempting a hard-coded list of shots you may not have.
+A shot number is required; run with no argument the script falls back to
+`DEFAULT_SHOTS` (a convenience for IDE "Run" buttons — command-line shots always
+win). Output is one figure per shot at `result_plot/comparison/<shot>_compare.png`,
+with ΔR and ΔZ panels. Each method is plotted on its **own native time samples**
+— no interpolation, no resampling, and deliberately no aggregate agreement
+statistic, because interpolating onto a common time base can manufacture
+agreement or disagreement where samples are sparse (e.g. the video-rate camera).
+The curves are left to speak for themselves.
 
-Overlays the filament, position.c, and (if `<shot>_pred.txt` exists) AI-camera
-traces on shared axes, saved to `result_plot/comparison/<shot>_compare.png`.
-Each method is plotted on its own native time samples — no interpolation, so
-gaps are visible rather than smoothed over. The filament configuration block at
-the top of the file mirrors `main.py`'s, and under `"adaptive"` both entry
-points call the same `adaptive_selection()`.
+`compare_methods.py` is a **non-invasive wrapper**: it imports and calls the
+method modules, aligns their time bases, and plots. It never modifies them. See
+Section 3c for its full flag reference.
 
-### 3c. Run position.c alone
+### 3c. `compare_methods.py` flag reference
+
+All configuration is a block of module-level constants at the top of the file
+(there are no command-line flags except the shot numbers). The four methods it
+can overlay:
+
+| method key | what it is | provides | units in |
+|---|---|---|---|
+| `filament` | M-probe toroidal-filament method through the linear proxy + Φ map, adaptive selection | dR, dZ | metres |
+| `biot_savart` | same filament physics, but `(dR, dZ)` fitted **directly** to the probes by nonlinear least squares (no proxy, no Φ map) | dR, dZ | metres |
+| `position_c` | the real-time controller's 2-probe formula, ported from `position.c` | dR only | mm → m |
+| `ai_camera` | CCD-image ML centre detection (`<shot>_pred.txt`) | dR, dZ | pixels → m |
+
+**Why `biot_savart` exists alongside `filament`.** Both share the same
+calibration and the same filament ansatz; they differ *only* in how the position
+is recovered — inverted through the Φ map vs. fitted by least squares. So the gap
+between the two curves isolates the **approximation error of the Φ path**, not
+its accuracy against ground truth. The AI camera is the only independent
+cross-check, and it is never treated as truth.
+
+#### Master switches
+
+```python
+PLOT_METHODS = {"filament": True, "biot_savart": True,
+                "position_c": True, "ai_camera": True}
+```
+Per-method on/off. A method set `False` is not loaded or plotted and its own
+config block below is ignored — this overrides everything else for that method.
+Turn off `biot_savart` if you only want the production method and the
+cross-checks; it is the most expensive of the four (Section 4 covers the Φ build
+cost, but the BS global search is separate and per-shot).
+
+```python
+FIT_IP = False
+```
+**The single most important flag.** Amplitude treatment, applied to **both**
+magnetic methods so they are always compared on the same footing:
+- `False` — fix the current at `Ip/I_ref`. A calibration/gain error then shows up
+  *as a position error*, which is what you want when auditing the calibration.
+- `True` — fit the current amplitude as an extra unknown. Immune to a common gain
+  error, but needs one more live probe, and (see the physics discussion in
+  `CHANGES.md`) the fitted `Ip` currently carries a flat-top amplitude bias, so
+  `True` is a diagnostic mode, not the trusted default.
+
+This one flag replaces the old separate `FIL_FIT_IP` / `BS_FIT_IP`. Those could
+disagree, which quietly made the filament-vs-Biot–Savart gap a function of
+configuration rather than of method. **Ship `False`.**
+
+#### Filament block (mirrors `main.py`'s M-probe block)
+
+```python
+FIL_PROBES           = "adaptive"   # "adaptive" (recommended) | list of probe-set lists
+FIL_ADAPTIVE_WEIGHTS = "auto"       # "auto" (this shot's pre-shot window) | "last" (inherited) — ADAPTIVE ONLY
+FIL_USE_MPROBE       = True         # False = original 4-probe antipodal path (paper method)
+FIL_WEIGHTS          = "auto"       # "auto" | dict | None — FIXED-SET path only
+FIL_GAINS            = None         # per-probe gain/polarity correction, if calibrated
+```
+`FIL_PROBES = "adaptive"` is the recommended setting and is documented in full in
+Section 4. `FIL_ADAPTIVE_WEIGHTS` is the *only* thing that differs between offline
+and real time: `"auto"` uses this shot's own pre-shot window; `"last"` inherits
+weights from a previous shot and is what real time must use. `fit_ip` is **not**
+set here — it comes from the top-level `FIT_IP`, shared with Biot–Savart.
+
+#### position.c block
+
+```python
+POSC_PICKUP_SOURCE = "filament"     # "positionc" (faithful) | "filament" (error-separation)
+POSC_FLIP_SIGN     = {"positionc": False, "filament": False}
+```
+`POSC_FLIP_SIGN` is a **dict keyed by pickup source, not a single flag** — and
+this is deliberate. Measured against the filament trace, the two pickup sources
+come out with opposite polarity on every shot tested, and shot 4404 inverts both
+relative to 1643/2766. A single shared flag cannot express that truth table and
+would silently mis-sign whichever source it was not tuned for. `FLIP_SIGN` only
+negates; it never changes the spread, so it can fix a polarity but never rescue a
+diverging trace (on 4404 the `positionc` pickup has std ~9.5 m either way — a
+calibration failure, not a sign).
+
+#### Biot–Savart block
+
+```python
+BS_FOLLOW_FILAMENT = False   # True = fit whichever probes the filament method used
+BS_PROBES          = None    # None = all 12 | list, e.g. [3,4,9,10]
+BS_WEIGHTS         = "auto"  # "auto" | "last" | None (uniform)
+BS_SEARCH          = "grid"  # "grid" = global 1 mm lattice search | "phi" = descend from the filament answer
+BS_FORWARD         = "internal"  # "internal" (vectorised) | "cal_signal"
+BS_PLOT_PHI_START  = False   # also plot a second BS curve seeded from the filament answer
+BS_HIDE_AT_WALL    = False   # blank samples whose best fit lands on the chamber wall
+```
+`BS_FOLLOW_FILAMENT = True` makes Biot–Savart fit the *same probes* the filament
+method used (its per-sample choice under adaptive, or `FIL_PROBES[0]` under a
+fixed set). This is for like-for-like comparison: with the same probes and the
+shared `FIT_IP`, a remaining gap between the two curves is the `(u,v)` proxy and
+the Φ map alone. **Note:** it makes the like-for-like agreement look *worse* than
+BS-on-all-12, because it strips out the averaging of extra probes to isolate the
+proxy — that is the intended behaviour, not a regression.
+
+`BS_SEARCH = "grid"` is an exhaustive 1 mm lattice over the chamber with every
+local minimum refined and the lowest kept — the true global minimum inside the
+0.20 m limiter radius, subject to the lattice resolving every basin. `"phi"`
+instead descends only from the filament method's answer. Set `BS_PLOT_PHI_START`
+to plot both and see where the Φ answer leaves the global basin (doubles BS
+runtime).
+
+#### Uncertainty band
+
+```python
+PLOT_BAND   = True    # shade a per-sample band behind the magnetic curves
+BAND_SIGMAS = 1.0     # band width in standard deviations
+```
+The band is a **conditioning measure** — how tightly the probes pin the position
+given how badly the model fits — derived from each method's own fit residual
+through the forward Jacobian. It is **not a confidence interval**: the residual is
+dominated by systematic model error, not random noise. `BAND_SIGMAS` defaults to
+1.0 rather than a "95%" figure precisely to avoid inviting a probability reading
+the quantity does not support.
+
+#### AI-camera block
+
+```python
+AI_MMPERPX   = 250.0 / 396.0   # mm per pixel (396 px = 250 mm minor radius)
+AI_CONF_MIN  = 0.5             # drop frames below this detector confidence
+AI_CENTRE_TXC = 1155           # vessel-centre reference pixel (x)
+AI_CENTRE_TYC = 525            # vessel-centre reference pixel (y)
+```
+Displacement is `(pixel − centre_pixel) × scale`. Leave **both** centre pixels
+`None` to use the shot-mean of the confident frames (dR/dZ then read as deviations
+from the mean position); set **both** to use a fixed calibrated vessel centre.
+Axis orientation is fixed in `load_ai_camera()` (right = outboard = +R, upward =
++Z); if dZ comes out inverted vs. the filament, negate the `dZ_mm` line there. As
+always, the camera is a cross-check only — and `load_ai_camera` warns if a shot's
+prediction file looks like it belongs to a different discharge (see Troubleshooting).
+
+#### `DEFAULT_SHOTS`
+
+```python
+DEFAULT_SHOTS = ["3970", "4047", "4048", "4049", "4052", "4398"]
+```
+Used only when no shot is given on the command line. Keep it to shots whose
+`data/<shot>/` you actually have — a missing directory raises part-way through the
+loop, after earlier shots have already been plotted. Leave the list empty to force
+a shot to always be given explicitly.
+
+### 3d. Run position.c alone
 
 ```
 python position_c_displacement.py 1641
@@ -262,9 +408,13 @@ Run with no shot number to print usage.
 
 ---
 
-## 5. The M-probe method's other settings
+## 5. The M-probe method's other settings (`main.py`)
 
-These apply to the **fixed-set** path only (ignored under `"adaptive"`):
+These are `main.py`'s flags, and apply to the **fixed-set** path only (ignored
+under `"adaptive"`). `compare_methods.py` has its own equivalents with a shared
+`FIT_IP` — see Section 3c; do not confuse `main.py`'s `mprobe_fit_ip` (per-run)
+with `compare_methods.py`'s top-level `FIT_IP` (shared across both magnetic
+methods).
 
 ```python
 use_mprobe = True            # False = original 4-probe antipodal path (paper method)
@@ -300,7 +450,7 @@ change one):
 
 ```
 main.py                     run TFM + OFIT on a list of shots
-compare_methods.py          overlay filament / position.c / AI-camera on one shot
+compare_methods.py          overlay filament / Biot-Savart / position.c / AI-camera on one shot
 position_c_displacement.py  standalone position.c reproduction
 adaptive_select.py          adaptive probe-set selection (rt field, prebuild)
 build_all_phi.py            prebuild Phi maps for the LEGACY 4-probe path (see its docstring;
